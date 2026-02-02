@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>J2ME Asset Hunter V9.7 (Auto Compress & Fix Tools)</title>
+    <title>J2ME Asset Hunter V9.8 (APK Supported)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Core Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
@@ -214,13 +214,12 @@
         #brushCursor {
             position: absolute;
             pointer-events: none;
-            /* FIX: Menghilangkan border-radius untuk bentuk kotak */
             border-radius: 0 !important; 
             border: 1px solid rgba(255, 255, 255, 0.8);
-            box-shadow: 0 0 0 1px rgba(0,0,0,0.5); /* Double border for visibility */
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.5); 
             z-index: 40;
             transform: translate(-50%, -50%);
-            display: none; /* Default hidden */
+            display: none; 
         }
     </style>
 </head>
@@ -230,7 +229,7 @@
     <header class="h-14 shrink-0 flex items-center justify-between px-4 bg-glass backdrop-blur-md border-b border-glassBorder z-[60] relative shadow-lg">
         <div id="header-logo-area" class="flex items-center gap-2 transition-opacity duration-300">
             <div class="w-8 h-8 rounded-lg grad-amber flex items-center justify-center text-white font-bold text-xs shadow-lg shadow-amber-500/20"><i class="fa-solid fa-crosshairs"></i></div>
-            <h1 class="font-bold text-base tracking-tight text-slate-100">J2ME <span class="text-amber-500">Hunter</span> <span class="text-[9px] text-slate-500 bg-slate-800 px-1 rounded ml-1">V9.7</span></h1>
+            <h1 class="font-bold text-base tracking-tight text-slate-100">J2ME <span class="text-amber-500">Hunter</span> <span class="text-[9px] text-slate-500 bg-slate-800 px-1 rounded ml-1">V9.8</span></h1>
         </div>
 
         <div id="header-editor-area" class="hidden absolute inset-0 flex items-center justify-between px-3 w-full bg-slate-900/95 backdrop-blur-md">
@@ -983,6 +982,27 @@
             });
         }
         
+        // --- APK DOWNLOAD FIX: Helper Function ---
+        function saveFileAPK(blob, fileName) {
+            // Android WebViews in APK wrappers usually block blob: downloads.
+            // Converting to Base64 (Data URI) bypasses the HTTP/HTTPS requirement 
+            // because the data is embedded directly in the string.
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const a = document.createElement('a');
+                a.href = e.target.result; // Data URL (base64)
+                a.download = fileName;
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(a.href);
+                }, 100);
+            };
+            reader.readAsDataURL(blob);
+        }
+
         window.downloadAssetsZip = async () => {
             if (foundImages.length === 0) { showNotification("Belum ada aset!", "error"); return; }
             document.getElementById('loadingOverlay').classList.remove('hidden');
@@ -1008,12 +1028,13 @@
                 }
                 for (const [path, data] of Object.entries(fileMap)) { zip.file(path, data); }
                 const content = await zip.generateAsync({type:"blob"});
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(content);
+                
                 let safeName = originalFileName.replace(/\.[^/.]+$/, "");
                 if(!safeName) safeName = "J2ME_Modded";
-                a.download = `${safeName}_Modded.jar`;
-                a.click();
+                
+                // APK FIX: Use saveFileAPK instead of simple link click
+                saveFileAPK(content, `${safeName}_Modded.jar`);
+                
                 showNotification("Game Siap Main! (.jar)", "success");
             } catch(e) { showNotification("Gagal repack: " + e.message, "error"); } finally { document.getElementById('loadingOverlay').classList.add('hidden'); }
         }
@@ -2022,19 +2043,24 @@
              let fname = "edited_image.png";
              if (currentEditorImageIndex !== -1) fname = foundImages[currentEditorImageIndex].name;
              else if (isImportedImage) fname = "imported_enhanced.png";
+             
              editorCanvas.toBlob((blob) => {
-                const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fname; a.click();
-                showNotification("Gambar disimpan!", "success");
+                 // APK FIX: Use saveFileAPK to force Data URI download
+                 saveFileAPK(blob, fname);
+                 showNotification("Gambar disimpan!", "success");
              }, 'image/png');
         }
         
         window.downloadRawAsset = (index) => {
             const img = foundImages[index];
             if (!img) return;
-            const a = document.createElement('a');
-            a.href = img.url;
-            a.download = img.name;
-            a.click();
+            // APK FIX: Directly use the stored blob instead of the blob URL
+            if (img.blob) {
+                saveFileAPK(img.blob, img.name);
+            } else {
+                // Fallback (unlikely)
+                saveFileAPK(new Blob([img.originalData], {type: 'image/png'}), img.name);
+            }
             showNotification(`Mengunduh ${img.name}...`, "info");
         };
 
