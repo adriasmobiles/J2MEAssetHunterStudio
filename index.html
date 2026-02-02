@@ -1,0 +1,2404 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>J2ME Asset Hunter V9.7 (Auto Compress & Fix Tools)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Core Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/upng-js/2.1.0/UPNG.min.js"></script>
+    <!-- JSZip for JAR/ZIP Handling -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif', 'system-ui'] },
+                    colors: {
+                        glass: 'rgba(15, 23, 42, 0.90)', 
+                        glassBorder: 'rgba(255, 255, 255, 0.1)',
+                        accent: '#f59e0b', 
+                    },
+                    height: { 'screen-dvh': '100dvh' },
+                    animation: {
+                        'slide-up': 'slideUp 0.3s ease-out',
+                        'slide-down': 'slideDown 0.3s ease-in',
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    keyframes: {
+                        slideUp: {
+                            '0%': { transform: 'translateY(100%)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' },
+                        },
+                        slideDown: {
+                            '0%': { transform: 'translateY(-100%)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+        
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background: #0f0a05; 
+            color: #e2e8f0; 
+            overflow: hidden; 
+            overscroll-behavior: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Checker & Canvas */
+        .checker-bg {
+            background-color: #1e293b;
+            background-image: 
+                linear-gradient(45deg, #334155 25%, transparent 25%), 
+                linear-gradient(-45deg, #334155 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #334155 75%), 
+                linear-gradient(-45deg, transparent 75%, #334155 75%);
+            background-size: 10px 10px;
+            background-position: 0 0, 0 5px, 5px -5px, -5px 0px;
+        }
+        
+        #canvasWrapper {
+            background-image: 
+                linear-gradient(45deg, #1e293b 25%, transparent 25%), 
+                linear-gradient(-45deg, #1e293b 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #1e293b 75%), 
+                linear-gradient(-45deg, transparent 75%, #1e293b 75%);
+            background-color: #0f172a;
+            background-size: 20px 20px;
+            box-shadow: 0 0 50px rgba(0,0,0,0.6);
+            image-rendering: pixelated; 
+            image-rendering: crisp-edges;
+            display: inline-block; 
+            transform-origin: center center;
+            will-change: transform;
+        }
+        
+        canvas { 
+            image-rendering: pixelated; 
+            image-rendering: crisp-edges; 
+            display: block;
+        }
+
+        .guide-line {
+            position: absolute;
+            background-color: rgba(239, 68, 68, 0.8);
+            pointer-events: none;
+            z-index: 45;
+            display: none; 
+            box-shadow: 0 0 1px rgba(0,0,0,0.3);
+        }
+        #guideY { display: none !important; }
+
+        /* Custom Range Slider */
+        input[type=range] { -webkit-appearance: none; background: transparent; }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 16px; width: 16px;
+            border-radius: 50%; background: #f8fafc; margin-top: -6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5); border: 2px solid #f59e0b;
+        }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: #475569; border-radius: 2px; }
+
+        /* Text Overlay */
+        #textOverlay { 
+            position: absolute; outline: 1px dashed #06b6d4; 
+            background: rgba(6, 182, 212, 0.1); transform-origin: top left;
+            touch-action: none;
+        }
+        #textInner {
+            width: 100%; height: 100%; outline: none; display: flex; align-items: center; justify-content: center;
+            font-family: 'Arial', sans-serif; line-height: 1; white-space: pre; 
+            overflow: visible; 
+            cursor: text;
+        }
+        .resize-handle {
+            width: 12px; height: 12px; background: #06b6d4; border: 2px solid white;
+            border-radius: 50%; position: absolute; z-index: 50; box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        .drag-handle {
+            width: 24px; height: 24px; background: rgba(15, 23, 42, 0.9); color: white;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            position: absolute; top: -28px; left: 50%; transform: translateX(-50%); 
+            z-index: 51; font-size: 12px; border: 1px solid rgba(255,255,255,0.3); cursor: move;
+        }
+        
+        #textOverlay.locked-mode {
+            background: transparent !important;
+            outline: none !important;
+            pointer-events: none; 
+        }
+        #textOverlay.locked-mode .resize-handle,
+        #textOverlay.locked-mode .drag-handle {
+            display: none !important;
+        }
+        
+        #textOverlay.hidden-guides { outline: none; background: transparent; }
+        #textOverlay.hidden-guides .resize-handle, #textOverlay.hidden-guides .drag-handle { display: none; }
+
+        .custom-checkbox {
+            appearance: none; background-color: #1e293b; margin: 0; font: inherit; color: currentColor;
+            width: 1.5em; height: 1.5em; 
+            border: 2px solid #475569; border-radius: 0.35em; display: grid; place-content: center; transition: all 0.2s;
+        }
+        .custom-checkbox::before {
+            content: ""; width: 0.8em; height: 0.8em; transform: scale(0);
+            transition: 120ms transform ease-in-out; box-shadow: inset 1em 1em white;
+            transform-origin: center; clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+        }
+        .custom-checkbox:checked { background: linear-gradient(135deg, #f59e0b, #d97706); border-color: transparent; }
+        .custom-checkbox:checked::before { transform: scale(1); }
+        .custom-checkbox.magic:checked { background: linear-gradient(135deg, #a855f7, #7c3aed); border-color: transparent; }
+
+        .loader { border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid #f59e0b; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .bottom-sheet { transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+        .view-transition { transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s; }
+        #canvasViewport { transition: padding-bottom 0.3s ease-in-out; }
+        
+        .btn-disabled { filter: grayscale(100%); opacity: 0.5; pointer-events: none; animation: none !important; }
+
+        .grad-editor { background: linear-gradient(to right, #2563eb, #4f46e5, #9333ea); }
+        .grad-emerald { background: linear-gradient(135deg, #10b981, #0d9488); }
+        .grad-blue { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+        .grad-purple { background: linear-gradient(135deg, #a855f7, #7c3aed); }
+        .grad-purple-batch { background: linear-gradient(135deg, #9333ea, #c026d3); }
+        .grad-red { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        .grad-amber { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .grad-slate { background: linear-gradient(135deg, #475569, #334155); }
+        .grad-hunter { background: linear-gradient(135deg, #b45309, #78350f); }
+        
+        .menu-btn-active { background-color: #334155; border: 1px solid #475569; color: white !important; }
+
+        #quickZoomContainer { transition: opacity 0.2s ease, transform 0.2s ease; }
+        #quickZoomContainer.hidden-behind { opacity: 0; transform: translate(-50%, 20px); pointer-events: none; }
+        
+        .cursor-picker { cursor: crosshair !important; }
+        .offset-cursor-active { cursor: none !important; }
+
+        #btnUndoContainer { transition: bottom 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); }
+        .undo-floating { bottom: 6rem; }
+        
+        .btn-eyedropper-active {
+            background-color: #f59e0b !important;
+            border-color: #d97706 !important;
+            color: #ffffff !important;
+            box-shadow: 0 0 10px rgba(245, 158, 11, 0.4) !important;
+        }
+
+        .fab-hidden-center {
+            transform: translate(-50%, 200%) !important;
+            opacity: 0 !important;
+            pointer-events: none;
+        }
+        
+        .nav-hidden-vertical {
+            transform: translateY(200%) !important;
+            opacity: 0 !important;
+            pointer-events: none;
+        }
+
+        /* FIX: CURSOR BRUSH STYLE */
+        #brushCursor {
+            position: absolute;
+            pointer-events: none;
+            /* FIX: Menghilangkan border-radius untuk bentuk kotak */
+            border-radius: 0 !important; 
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.5); /* Double border for visibility */
+            z-index: 40;
+            transform: translate(-50%, -50%);
+            display: none; /* Default hidden */
+        }
+    </style>
+</head>
+<body class="h-screen-dvh w-screen flex flex-col relative bg-slate-950 overflow-hidden">
+
+    <!-- UNIVERSAL HEADER -->
+    <header class="h-14 shrink-0 flex items-center justify-between px-4 bg-glass backdrop-blur-md border-b border-glassBorder z-[60] relative shadow-lg">
+        <div id="header-logo-area" class="flex items-center gap-2 transition-opacity duration-300">
+            <div class="w-8 h-8 rounded-lg grad-amber flex items-center justify-center text-white font-bold text-xs shadow-lg shadow-amber-500/20"><i class="fa-solid fa-crosshairs"></i></div>
+            <h1 class="font-bold text-base tracking-tight text-slate-100">J2ME <span class="text-amber-500">Hunter</span> <span class="text-[9px] text-slate-500 bg-slate-800 px-1 rounded ml-1">V9.7</span></h1>
+        </div>
+
+        <div id="header-editor-area" class="hidden absolute inset-0 flex items-center justify-between px-3 w-full bg-slate-900/95 backdrop-blur-md">
+            <div class="flex items-center gap-3 flex-1 overflow-hidden mr-2">
+                <button onclick="closeEditor()" class="h-9 w-9 shrink-0 flex items-center justify-center rounded-full text-slate-300 active:bg-slate-800 active:text-white transition hover:bg-white/5 border border-transparent active:border-slate-700">
+                    <i class="fa-solid fa-arrow-left text-lg"></i>
+                </button>
+                <div class="flex flex-col justify-center overflow-hidden w-full">
+                    <span class="text-[8px] text-slate-500 uppercase font-bold tracking-widest leading-none mb-0.5">Editing</span>
+                    <span id="headerFileName" class="text-xs font-mono text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-300 font-bold truncate block w-full">sprite.png</span>
+                </div>
+            </div>
+
+             <button id="btnApplyAll" onclick="applyShaderToAll()" class="hidden shrink-0 px-3 py-1.5 bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 rounded-lg text-[9px] font-bold active:scale-95 transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-900/20">
+                <i class="fa-solid fa-layer-group"></i> <span>TERAPKAN SEMUA</span>
+             </button>
+        </div>
+
+        <div id="notificationArea" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[70] pointer-events-none flex flex-col items-center justify-center w-full px-12"></div>
+
+        <button id="btnDirectEditor" onclick="openBlankEditor()" class="grad-editor text-white px-4 py-1.5 rounded-full text-[10px] font-bold shadow-lg shadow-indigo-500/30 active:scale-95 border border-white/20 flex items-center gap-2 transition-all hover:brightness-110">
+            <i class="fa-solid fa-paintbrush"></i> EDITOR
+        </button>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 relative w-full h-full overflow-hidden">
+        <!-- EXTRACTOR VIEW -->
+        <div id="view-extractor" class="absolute inset-0 flex flex-col p-4 overflow-y-auto no-scrollbar pb-40 view-transition z-10 scroll-smooth">
+            <div class="bg-slate-900/50 border-2 border-dashed border-slate-700 rounded-2xl p-8 flex flex-col items-center justify-center mb-6 relative active:bg-slate-800 transition touch-manipulation group hover:border-amber-500/50">
+                <input type="file" id="fileInput" class="absolute inset-0 opacity-0 z-10 cursor-pointer h-full w-full">
+                <div class="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mb-4 shadow-inner group-active:scale-95 transition">
+                    <i class="fa-solid fa-box-open text-amber-500 text-3xl drop-shadow-lg"></i>
+                </div>
+                <h3 class="font-bold text-slate-200">Buka File Game (Jar/Bin/Mid)</h3>
+                <p id="fileNameDisplay" class="text-xs text-slate-400 mt-1 text-center px-4">Deep Scan (Chunk Parser V2)</p>
+            </div>
+
+            <div id="statsBar" class="hidden flex justify-between items-center mb-3 px-1">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Hasil Buruan</h2>
+                <span id="countDisplay" class="text-[10px] bg-slate-800 text-slate-300 px-2 py-1 rounded-full border border-slate-700 shadow-sm">0 Items</span>
+            </div>
+
+            <div id="imagesContainer" class="space-y-3 pb-20 min-h-[200px]">
+                <div id="emptyState" class="text-center py-12 opacity-40 flex flex-col items-center">
+                    <i class="fa-solid fa-radar text-4xl mb-3 text-slate-600"></i>
+                    <p class="text-sm text-slate-500">Mencari Aset Tersembunyi...</p>
+                </div>
+            </div>
+            
+            <div id="quickScrollControls" class="fixed bottom-24 right-4 z-40 flex flex-col gap-2 transition-all duration-300 hidden">
+                <button onclick="scrollToTop()" class="w-10 h-10 rounded-full bg-slate-800/80 backdrop-blur border border-slate-600 text-slate-300 shadow-lg active:scale-95 flex items-center justify-center transition-all hover:bg-slate-700">
+                    <i class="fa-solid fa-arrow-up"></i>
+                </button>
+                <button onclick="scrollToBottom()" class="w-10 h-10 rounded-full bg-slate-800/80 backdrop-blur border border-slate-600 text-slate-300 shadow-lg active:scale-95 flex items-center justify-center transition-all hover:bg-slate-700">
+                    <i class="fa-solid fa-arrow-down"></i>
+                </button>
+            </div>
+             
+             <button onclick="downloadAssetsZip()" id="fabDownload" 
+                class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-40 px-5 py-2.5 grad-amber rounded-full shadow-lg shadow-amber-900/40 text-white font-bold text-[10px] flex items-center gap-2 active:scale-95 transition-all duration-300 border border-white/10 whitespace-nowrap">
+                <i class="fa-solid fa-gamepad text-sm"></i>
+                <span>REPACK JAR</span>
+            </button>
+
+        </div>
+
+        <!-- EDITOR VIEW -->
+        <div id="view-editor" class="absolute inset-0 bg-slate-950 z-20 translate-x-full view-transition flex flex-col h-full w-full">
+            
+            <div id="canvasViewport" class="flex-1 relative overflow-hidden touch-none flex items-center justify-center bg-slate-950 w-full transition-all duration-300" style="height: 100%;">
+                <div id="canvasWrapper" class="relative shadow-2xl origin-center will-change-transform rounded-sm ring-1 ring-white/5">
+                    <canvas id="editorCanvas" class="block"></canvas>
+                    <div id="brushCursor" class="bg-white/20 hidden"></div>
+                    <div id="selectionBox" class="absolute border border-dashed border-red-400 bg-red-500/10 hidden z-20 pointer-events-none box-border"></div>
+                    <div id="guideX" class="guide-line w-full h-[1px] top-1/2 left-0 transform -translate-y-1/2"></div>
+                    <div id="guideY" class="guide-line h-full w-[1px] left-1/2 top-0 transform -translate-x-1/2"></div>
+                </div>
+                <div id="textOverlay" class="hidden flex items-center justify-center z-50">
+                    <div id="dragHandle" class="drag-handle shadow-lg"><i class="fa-solid fa-arrows-up-down-left-right"></i></div>
+                    <div id="handle-br" class="resize-handle bottom-[-6px] right-[-6px]"></div>
+                    <div id="textInner" contenteditable="true" class="w-full h-full drop-shadow-sm">TEKS</div>
+                </div>
+            </div>
+
+            <!-- Floating Side Controls -->
+            <div class="absolute top-4 right-3 flex flex-col gap-3 z-30 pointer-events-none">
+                <div class="flex flex-col gap-2 pointer-events-auto items-end">
+                    <button onclick="resetZoom()" class="w-10 h-10 rounded-full grad-slate border border-slate-600 text-slate-200 flex items-center justify-center shadow-lg active:scale-95 transition-all">
+                        <i class="fa-solid fa-compress text-xs"></i>
+                    </button>
+                    <button onclick="toggleMode('pan')" id="btnModePan" class="w-10 h-10 rounded-full grad-slate border border-slate-600 text-slate-200 flex items-center justify-center transition-all shadow-lg active:scale-95">
+                        <i class="fa-solid fa-hand text-xs"></i>
+                    </button>
+                </div>
+
+                <div class="flex flex-col gap-2 mt-2 pointer-events-auto items-end">
+                    <button id="btnInject" onclick="injectFromEditor()" class="w-10 h-10 rounded-full grad-purple border border-white/20 text-white shadow-lg shadow-purple-900/40 active:scale-95 flex items-center justify-center animate-pulse-slow transition-all">
+                        <i class="fa-solid fa-floppy-disk text-sm"></i>
+                    </button>
+                    <button onclick="downloadCurrentImage()" class="w-10 h-10 rounded-full grad-blue border border-blue-400/30 text-white shadow-lg shadow-blue-900/40 active:scale-95 flex items-center justify-center">
+                        <i class="fa-solid fa-download text-sm"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div id="btnUndoContainer" class="absolute right-4 z-40 pointer-events-auto undo-floating">
+                <button onclick="undo()" id="btnUndo" disabled class="w-10 h-10 rounded-full grad-slate border border-slate-600 text-slate-200 disabled:opacity-30 flex items-center justify-center transition-all shadow-xl active:scale-95">
+                     <i class="fa-solid fa-rotate-left text-sm"></i>
+                </button>
+            </div>
+
+            <div id="quickZoomContainer" class="absolute bottom-16 left-1/2 -translate-x-1/2 z-40 bg-slate-900/90 backdrop-blur-md border border-white/10 p-1 rounded-full shadow-xl flex items-center gap-1">
+                <button onclick="navigateEditor(-1)" class="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center active:scale-90 transition hover:bg-slate-700">
+                    <i class="fa-solid fa-chevron-left text-[10px]"></i>
+                </button>
+                
+                <div class="h-8 px-2 flex items-center gap-2 border-l border-r border-slate-700 mx-1">
+                    <i class="fa-solid fa-magnifying-glass text-slate-400 text-[10px]"></i>
+                    <input type="range" id="zoomSlider" min="0.1" max="10" step="0.1" value="1" class="w-24 h-1 bg-slate-600 rounded-lg appearance-none accent-amber-500">
+                    <span class="text-[9px] text-slate-300 w-8 text-right font-mono" id="zoomValDisplay">1.0x</span>
+                </div>
+
+                <button onclick="navigateEditor(1)" class="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center active:scale-90 transition hover:bg-slate-700">
+                    <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                </button>
+            </div>
+
+            <div class="absolute bottom-0 inset-x-0 z-30 flex justify-center pb-3 pointer-events-none">
+                 <button onclick="toggleTools()" class="pointer-events-auto bg-slate-800/95 backdrop-blur border border-slate-600/50 text-slate-300 px-5 py-2 rounded-full shadow-lg active:scale-95 transition-transform flex items-center gap-2 group hover:border-slate-500">
+                    <i class="fa-solid fa-bars text-xs group-hover:text-amber-400 transition-colors"></i> 
+                    <span class="text-[10px] font-bold tracking-wider">MENU ALAT</span>
+                 </button>
+            </div>
+        </div>
+    </main>
+    
+    <div id="outlineSelectionModal" class="hidden fixed inset-0 z-[80] flex items-end justify-center pointer-events-none pb-48">
+        <div class="bg-slate-900/90 backdrop-blur-md border border-slate-700 p-3 rounded-2xl shadow-2xl pointer-events-auto flex gap-3 animate-slide-up">
+            <button onclick="applyShader('outline_white'); document.getElementById('outlineSelectionModal').classList.add('hidden')" class="w-16 h-12 bg-white text-slate-900 rounded-xl font-bold text-[10px] flex flex-col items-center justify-center gap-1 active:scale-95 transition shadow-lg">
+                <div class="w-4 h-4 border-2 border-slate-900 rounded-sm"></div>
+                PUTIH
+            </button>
+            <button onclick="applyShader('outline_black'); document.getElementById('outlineSelectionModal').classList.add('hidden')" class="w-16 h-12 bg-black text-white border border-slate-700 rounded-xl font-bold text-[10px] flex flex-col items-center justify-center gap-1 active:scale-95 transition shadow-lg">
+                <div class="w-4 h-4 border-2 border-white rounded-sm bg-black"></div>
+                HITAM
+            </button>
+            <button onclick="document.getElementById('outlineSelectionModal').classList.add('hidden')" class="w-8 h-12 bg-slate-800 text-slate-400 rounded-xl flex items-center justify-center active:scale-95 transition hover:text-red-400">
+                <i class="fa-solid fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- BOTTOM TOOLS SHEET -->
+    <div id="toolsSheet" class="fixed inset-x-0 bottom-0 z-[60] flex flex-col justify-end transform translate-y-full bottom-sheet pointer-events-none">
+        <div id="toolsContent" class="bg-slate-900 rounded-t-2xl p-4 w-full pointer-events-auto border-t border-slate-800 shadow-[0_-5px_30px_rgba(0,0,0,0.6)] h-auto relative">
+            <div onclick="toggleTools(true)" class="absolute top-0 left-0 right-0 h-8 flex items-center justify-center cursor-pointer active:bg-slate-800/50 rounded-t-2xl -mt-2">
+                <div class="w-12 h-1 bg-slate-700 rounded-full"></div>
+            </div>
+            
+            <div class="mt-2">
+                <div class="grid grid-cols-4 gap-2 mb-3">
+                    <button onclick="openSubMenu('file')" id="menu-file" class="p-2 rounded-xl bg-slate-800 text-slate-400 border border-transparent hover:bg-slate-700 active:scale-95 transition-all">
+                        <div class="flex flex-col items-center gap-1">
+                            <i class="fa-regular fa-image text-lg"></i>
+                            <span class="text-[9px] font-bold">GAMBAR</span>
+                        </div>
+                    </button>
+                    <button onclick="openSubMenu('brush')" id="menu-brush" class="p-2 rounded-xl bg-slate-800 text-slate-400 border border-transparent hover:bg-slate-700 active:scale-95 transition-all">
+                        <div class="flex flex-col items-center gap-1">
+                            <i class="fa-solid fa-paintbrush text-lg"></i>
+                            <span class="text-[9px] font-bold">KUAS</span>
+                        </div>
+                    </button>
+                    <button onclick="openSubMenu('eraser')" id="menu-eraser" class="p-2 rounded-xl bg-slate-800 text-slate-400 border border-transparent hover:bg-slate-700 active:scale-95 transition-all">
+                        <div class="flex flex-col items-center gap-1">
+                            <i class="fa-solid fa-eraser text-lg"></i>
+                            <span class="text-[9px] font-bold">HAPUS</span>
+                        </div>
+                    </button>
+                    <button onclick="openSubMenu('text')" id="menu-text" class="p-2 rounded-xl bg-slate-800 text-slate-400 border border-transparent hover:bg-slate-700 active:scale-95 transition-all">
+                        <div class="flex flex-col items-center gap-1">
+                            <i class="fa-solid fa-font text-lg"></i>
+                            <span class="text-[9px] font-bold">TEKS</span>
+                        </div>
+                    </button>
+                </div>
+
+                <div id="toolProperties" class="bg-slate-950/50 rounded-xl p-3 border border-slate-800 min-h-[80px]">
+                    <div id="panel-empty" class="text-center py-2 text-slate-500 text-[10px] italic">Pilih alat di atas untuk menampilkan opsi.</div>
+
+                    <div id="panel-file" class="hidden space-y-3">
+                        <div class="flex items-center gap-2">
+                            <label class="flex-1 flex items-center justify-center gap-2 py-2.5 grad-blue rounded-lg text-white text-[9px] font-bold shadow-lg shadow-blue-900/30 active:scale-95 cursor-pointer transition">
+                                <i class="fa-solid fa-upload"></i>
+                                <span>GANTI GAMBAR</span>
+                                <input type="file" id="manualEditorLoad" accept="image/*" class="hidden">
+                            </label>
+                            
+                            <div class="flex-1 flex gap-1 h-9">
+                                <input type="number" id="resizeW" placeholder="W" class="w-full bg-slate-800 border border-slate-700 rounded-l-lg p-1 text-[10px] text-center text-white outline-none focus:border-blue-500">
+                                <input type="number" id="resizeH" placeholder="H" class="w-full bg-slate-800 border border-slate-700 border-l-0 p-1 text-[10px] text-center text-white outline-none focus:border-blue-500">
+                                <button onclick="applyCanvasResize()" class="px-3 bg-slate-700 rounded-r-lg text-[10px] text-white hover:bg-slate-600 border border-l-0 border-slate-700"><i class="fa-solid fa-check"></i></button>
+                            </div>
+                        </div>
+
+                        <div id="enhancementPanel" class="hidden pt-2 border-t border-slate-800 border-dashed">
+                             <span class="text-[9px] text-slate-500 block mb-2 font-bold uppercase tracking-wider">J2ME Image Enhancer</span>
+                             <div class="grid grid-cols-4 gap-2 mb-2">
+                                <button onclick="applyShader('smart_contrast')" class="py-2 bg-slate-800 border border-slate-700 rounded-lg text-[9px] text-slate-300 flex flex-col items-center justify-center gap-1 active:bg-slate-700 hover:border-indigo-500/50">
+                                    <i class="fa-solid fa-circle-half-stroke text-indigo-400 text-[10px]"></i> Contrast
+                                </button>
+                                <button onclick="applyShader('natural')" class="py-2 bg-slate-800 border border-slate-700 rounded-lg text-[9px] text-slate-300 flex flex-col items-center justify-center gap-1 active:bg-slate-700 hover:border-emerald-500/50">
+                                    <i class="fa-solid fa-leaf text-emerald-400 text-[10px]"></i> Natural
+                                </button>
+                                <button onclick="applyShader('fxaa')" class="py-2 bg-slate-800 border border-slate-700 rounded-lg text-[9px] text-slate-300 flex flex-col items-center justify-center gap-1 active:bg-slate-700 hover:border-purple-500/50">
+                                    <i class="fa-solid fa-droplet text-purple-400 text-[10px]"></i> Halus
+                                </button>
+                                <button onclick="applyShader('crt')" class="py-2 bg-slate-800 border border-slate-700 rounded-lg text-[9px] text-slate-300 flex flex-col items-center justify-center gap-1 active:bg-slate-700 hover:border-cyan-500/50">
+                                    <i class="fa-solid fa-tv text-cyan-400 text-[10px]"></i> CRT
+                                </button>
+                             </div>
+                             <div class="grid grid-cols-4 gap-2">
+                                <button onclick="applyShader('grayscale')" class="py-2 bg-slate-800 border border-slate-700 rounded-lg text-[9px] text-slate-300 flex flex-col items-center justify-center gap-1 active:bg-slate-700 hover:border-gray-500/50">
+                                    <i class="fa-solid fa-filter text-gray-400 text-[10px]"></i> Mono
+                                </button>
+                                <button onclick="applyShader('warmth')" class="py-2 bg-slate-800 border border-slate-700 rounded-lg text-[9px] text-slate-300 flex flex-col items-center justify-center gap-1 active:bg-slate-700 hover:border-orange-500/50">
+                                    <i class="fa-solid fa-mug-hot text-orange-400 text-[10px]"></i> Warmth
+                                </button>
+                                <button onclick="applyShader('cool')" class="py-2 bg-slate-800 border border-slate-700 rounded-lg text-[9px] text-slate-300 flex flex-col items-center justify-center gap-1 active:bg-slate-700 hover:border-blue-500/50">
+                                    <i class="fa-solid fa-snowflake text-blue-400 text-[10px]"></i> Cool
+                                </button>
+                                <button onclick="openOutlineMenu()" class="py-2 bg-slate-800 border border-slate-700 rounded-lg text-[9px] text-slate-300 flex flex-col items-center justify-center gap-1 active:bg-slate-700 hover:border-white/50">
+                                    <i class="fa-regular fa-square text-white text-[10px]"></i> Outline
+                                </button>
+                             </div>
+                        </div>
+                    </div>
+
+                    <div id="panel-brush" class="hidden space-y-3">
+                        <div class="flex items-center justify-between bg-slate-800/50 p-2 rounded-lg border border-slate-700">
+                            <div class="flex items-center gap-2">
+                                <div class="w-6 h-6 rounded bg-emerald-500/20 flex items-center justify-center"><i class="fa-solid fa-paint-roller text-emerald-500 text-[10px]"></i></div>
+                                <span class="text-[10px] font-bold text-slate-200">Mode Kuas</span>
+                            </div>
+                            <input type="checkbox" id="brushActiveToggle" onchange="toggleToolState('brush', this.checked)" class="custom-checkbox text-emerald-500">
+                        </div>
+                        
+                        <!-- PRECISION MODE TOGGLE -->
+                        <div class="flex items-center justify-between bg-slate-800/50 p-2 rounded-lg border border-slate-700">
+                            <div class="flex items-center gap-2">
+                                <div class="w-6 h-6 rounded bg-blue-500/20 flex items-center justify-center"><i class="fa-solid fa-crosshairs text-blue-400 text-[10px]"></i></div>
+                                <span class="text-[10px] font-bold text-slate-200">Mode Presisi (Jari)</span>
+                            </div>
+                            <input type="checkbox" id="precisionBrushToggle" onchange="togglePrecisionMode(this.checked)" class="custom-checkbox text-blue-500">
+                        </div>
+
+                        <div class="flex items-center justify-between bg-slate-800/50 p-2 rounded-lg border border-slate-700">
+                            <div class="flex items-center gap-2">
+                                <div class="w-6 h-6 rounded bg-purple-500/20 flex items-center justify-center"><i class="fa-solid fa-wand-magic-sparkles text-purple-400 text-[10px]"></i></div>
+                                <span class="text-[10px] font-bold text-slate-200">Magic (Ganti Warna)</span>
+                            </div>
+                            <input type="checkbox" id="brushMagicToggle" class="custom-checkbox magic text-purple-500">
+                        </div>
+
+                        <div class="flex items-center gap-2 px-1">
+                            <span class="text-[9px] text-slate-400">Size</span>
+                            <input type="range" id="brushSizeSlider" min="1" max="20" value="1" class="flex-1 h-1.5 bg-slate-700 rounded-full">
+                            <span id="brushSizeVal" class="text-[9px] text-slate-300 w-6 text-right font-mono">1px</span>
+                        </div>
+                        
+                        <div class="flex gap-2">
+                            <input type="color" id="brushColorPicker" value="#000000" class="h-9 w-full rounded-lg bg-slate-800 border border-slate-700 p-1 cursor-pointer">
+                            <button onclick="toggleEyedropper('brush')" id="btnEyedropperBrush" class="w-9 h-9 rounded-lg bg-slate-700 border border-slate-600 text-slate-300 flex items-center justify-center shadow hover:bg-slate-600 active:scale-95 transition">
+                                <i class="fa-solid fa-eye-dropper text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="panel-eraser" class="hidden space-y-3">
+                        <div class="flex items-center justify-between bg-slate-800/50 p-2 rounded-lg border border-slate-700">
+                            <div class="flex items-center gap-2">
+                                <div class="w-6 h-6 rounded bg-red-500/20 flex items-center justify-center"><i class="fa-solid fa-eraser text-red-500 text-[10px]"></i></div>
+                                <span class="text-[10px] font-bold text-slate-200">Mode Penghapus</span>
+                            </div>
+                            <input type="checkbox" id="eraserActiveToggle" onchange="toggleToolState('eraser', this.checked)" class="custom-checkbox text-red-500">
+                        </div>
+                        
+                        <!-- PRECISION MODE TOGGLE (Shared State) -->
+                        <div class="flex items-center justify-between bg-slate-800/50 p-2 rounded-lg border border-slate-700">
+                            <div class="flex items-center gap-2">
+                                <div class="w-6 h-6 rounded bg-blue-500/20 flex items-center justify-center"><i class="fa-solid fa-crosshairs text-blue-400 text-[10px]"></i></div>
+                                <span class="text-[10px] font-bold text-slate-200">Mode Presisi (Jari)</span>
+                            </div>
+                            <input type="checkbox" id="precisionEraserToggle" onchange="togglePrecisionMode(this.checked)" class="custom-checkbox text-blue-500">
+                        </div>
+
+                        
+                        <div class="flex items-center justify-between bg-slate-800/50 p-2 rounded-lg border border-slate-700">
+                            <div class="flex items-center gap-2">
+                                <div class="w-6 h-6 rounded bg-purple-500/20 flex items-center justify-center"><i class="fa-solid fa-wand-sparkles text-purple-400 text-[10px]"></i></div>
+                                <span class="text-[10px] font-bold text-slate-200">Magic (Hapus Warna)</span>
+                            </div>
+                            <input type="checkbox" id="eraserMagicToggle" class="custom-checkbox magic text-purple-500">
+                        </div>
+                         <div class="flex items-center gap-2 px-1">
+                            <span class="text-[9px] text-slate-400">Size</span>
+                            <input type="range" id="eraserSizeSlider" min="1" max="20" value="1" class="flex-1 h-1.5 bg-slate-700 rounded-full">
+                            <span id="eraserSizeVal" class="text-[9px] text-slate-300 w-6 text-right font-mono">1px</span>
+                        </div>
+
+                        <button onclick="clearSelectionArea()" class="w-full py-2.5 grad-red rounded-lg text-white font-bold text-[9px] shadow-lg shadow-red-900/30 active:scale-95 flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-trash-can"></i> BERSIHKAN KANVAS
+                        </button>
+                    </div>
+
+                    <div id="panel-text" class="hidden space-y-3">
+                        <div class="flex items-center justify-between bg-slate-800/50 p-2 rounded-lg border border-slate-700">
+                            <div class="flex items-center gap-2">
+                                <div class="w-6 h-6 rounded bg-blue-500/20 flex items-center justify-center"><i class="fa-solid fa-font text-blue-500 text-[10px]"></i></div>
+                                <span class="text-[10px] font-bold text-slate-200">Layer Teks</span>
+                            </div>
+                            <input type="checkbox" id="textVisibleToggle" onchange="toggleTextVisibility(this.checked)" class="custom-checkbox text-blue-500">
+                        </div>
+                        <div class="flex items-center gap-2 px-1">
+                             <i class="fa-solid fa-text-height text-slate-500 text-[10px]"></i>
+                             <input type="range" id="fontSizeSlider" min="6" max="48" value="10" class="flex-1 h-1.5 bg-slate-700 rounded-full">
+                             <span id="fontSizeDisplay" class="text-[9px] text-slate-300 w-6 text-right font-mono">10</span>
+                        </div>
+                        <div class="grid grid-cols-[1fr_auto] gap-2">
+                            <input type="color" id="textColorPicker" value="#ffffff" class="h-8 w-full rounded-lg bg-slate-800 border border-slate-700 p-1">
+                            <button onclick="toggleEyedropper('text')" id="btnEyedropperText" class="w-8 h-8 rounded-lg bg-slate-700 border border-slate-600 text-slate-300 flex items-center justify-center shadow hover:bg-slate-600 active:scale-95 transition">
+                                <i class="fa-solid fa-eye-dropper text-xs"></i>
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                             <button onclick="toggleBold()" id="btnBold" class="h-8 bg-slate-800 rounded-lg text-[9px] font-bold border border-slate-700 text-slate-300 w-full">BOLD</button>
+                             <button onclick="toggleItalic()" id="btnItalic" class="h-8 bg-slate-800 rounded-lg text-[9px] border border-slate-700 text-slate-300 w-full italic">Italic</button>
+                        </div>
+                        <div class="flex items-center gap-2 border-t border-slate-800 pt-2">
+                            <input type="checkbox" id="outlineCheck" class="custom-checkbox w-6 h-6">
+                            <span class="text-[10px] text-slate-300">Outline/Back</span>
+                            <div id="outlineOptions" class="flex-1 flex gap-2 opacity-50 pointer-events-none transition-opacity items-center">
+                                <input type="color" id="outlineColorPicker" value="#000000" class="h-6 w-8 rounded bg-slate-800 border-none">
+                                <input type="range" id="outlineSizeSlider" min="0" max="8" step="0.5" value="1" class="flex-1 h-6">
+                                <span id="outlineSizeVal" class="text-[9px] text-slate-400 font-mono w-6 text-right">1.0</span>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 mt-1">
+                            <button onclick="applyTextPrecise()" class="py-2 grad-blue rounded-lg text-white font-bold text-[9px] active:scale-95 shadow flex items-center justify-center gap-1">
+                                <i class="fa-solid fa-check"></i> TERAPKAN
+                            </button>
+                            <button id="btnColorSmart" onclick="handleColorSmartAction()" class="py-2 grad-amber rounded-lg text-white font-bold text-[9px] active:scale-95 shadow flex items-center justify-center gap-1 transition-all">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i> <span id="lblColorSmart">OTOMATIS</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="loadingOverlay" class="hidden fixed inset-0 bg-black/90 z-[80] flex flex-col items-center justify-center backdrop-blur-md">
+        <div class="loader mb-4"></div>
+        <span class="text-sm font-bold text-amber-400 animate-pulse">Memproses...</span>
+        <span id="loadingStatus" class="text-xs text-slate-500 mt-1">Memburu Aset...</span>
+    </div>
+
+    <script>
+        // --- GLOBAL VARIABLES ---
+        let originalFileBytes = null;
+        let originalFileName = "";
+        let originalZipData = null; 
+        let originalZipFiles = {}; 
+        let foundImages = []; 
+        let editorCanvas = document.getElementById('editorCanvas');
+        let ctx = editorCanvas.getContext('2d');
+        let currentEditorImageIndex = -1; 
+        let originalImportedImage = null; 
+        let isImportedImage = false; 
+        let currentTool = 'none'; 
+        let scale = 1;
+        let pannedX = 0, pannedY = 0;
+        let isPanning = false;
+        let startPanX = 0, startPanY = 0;
+        let isDrawing = false;
+        let isTouchZooming = false;
+        let lastTouchDist = 0;
+        let selectionBox = document.getElementById('selectionBox');
+        let brushCursor = document.getElementById('brushCursor');
+        let selectionActive = false;
+        let selectionRect = { x: 0, y: 0, w: 0, h: 0 };
+        let selectionStart = { x: 0, y: 0 };
+        let undoStack = [];
+        const MAX_UNDO = 20; 
+        let hasPickedColor = false;
+        let lastEyedropperColor = null; 
+        let textOverlay = document.getElementById('textOverlay');
+        let textInner = document.getElementById('textInner');
+        let textState = { visible: false, x: 0, y: 0, w: 80, h: 20, fontSize: 10, bold: false, italic: false };
+        let isTextDragging = false;
+        let isTextResizing = false;
+        let textDragStart = {x: 0, y: 0};
+        let guideX = document.getElementById('guideX');
+        let guideY = document.getElementById('guideY');
+        
+        let isTextVirtual = false; 
+        
+        let isPrecisionMode = false;
+        let eyedropperActive = false;
+        let eyedropperTargetInput = null; // 'brush' or 'text'
+        let currentActiveShader = null; 
+
+        // Drawing interpolation
+        let lastDrawX = null;
+        let lastDrawY = null;
+
+        const viewExtractor = document.getElementById('view-extractor');
+        const viewEditor = document.getElementById('view-editor');
+        const toolsSheet = document.getElementById('toolsSheet');
+        const canvasWrapper = document.getElementById('canvasWrapper');
+        const canvasViewport = document.getElementById('canvasViewport');
+        const headerLogoArea = document.getElementById('header-logo-area');
+        const headerEditorArea = document.getElementById('header-editor-area');
+        const headerFileName = document.getElementById('headerFileName');
+        const btnDirectEditor = document.getElementById('btnDirectEditor');
+        const quickZoomContainer = document.getElementById('quickZoomContainer');
+        const btnUndoContainer = document.getElementById('btnUndoContainer');
+        const btnApplyAll = document.getElementById('btnApplyAll');
+        
+        const fabDownload = document.getElementById('fabDownload');
+        const quickScrollControls = document.getElementById('quickScrollControls');
+
+        let overlaySyncId = null;
+
+        // --- BACK BUTTON LOGIC ---
+        let backPressTimer = null;
+        window.history.pushState(null, null, window.location.href);
+        window.addEventListener('popstate', (event) => {
+            if(!viewEditor.classList.contains('translate-x-full')) {
+                window.history.pushState(null, null, window.location.href); 
+                closeEditor();
+                return;
+            }
+            if (backPressTimer) {
+            } else {
+                window.history.pushState(null, null, window.location.href); 
+                showNotification("Tekan 'Kembali' sekali lagi untuk keluar", "warning");
+                backPressTimer = setTimeout(() => { backPressTimer = null; }, 2000); 
+            }
+        });
+
+        // --- SCROLL HIDE/SHOW LOGIC ---
+        let lastScrollTop = 0;
+        viewExtractor.addEventListener('scroll', () => {
+             const st = viewExtractor.scrollTop;
+             if(st > lastScrollTop && st > 50) {
+                 fabDownload.classList.add('fab-hidden-center');
+                 quickScrollControls.classList.add('nav-hidden-vertical');
+             } else {
+                 fabDownload.classList.remove('fab-hidden-center');
+                 quickScrollControls.classList.remove('nav-hidden-vertical');
+             }
+             lastScrollTop = st;
+        });
+
+        function switchView(view) {
+            toggleTools(true); 
+            if (view === 'editor') {
+                viewEditor.classList.remove('translate-x-full');
+                fabDownload.classList.add('hidden'); 
+                quickScrollControls.classList.add('hidden');
+                headerLogoArea.classList.add('hidden');
+                headerEditorArea.classList.remove('hidden');
+                btnDirectEditor.classList.add('hidden');
+            } else {
+                viewEditor.classList.add('translate-x-full');
+                if(foundImages.length > 0) {
+                    fabDownload.classList.remove('hidden');
+                    quickScrollControls.classList.remove('hidden');
+                }
+                headerLogoArea.classList.remove('hidden');
+                headerEditorArea.classList.add('hidden');
+                btnDirectEditor.classList.remove('hidden');
+                toggleTextVisibility(false);
+                btnApplyAll.classList.add('hidden'); 
+                currentActiveShader = null;
+            }
+        }
+        window.closeEditor = () => switchView('extractor');
+        
+        function updateUndoPosition() {
+             const btnUndo = document.getElementById('btnUndoContainer');
+             const toolsContent = document.getElementById('toolsContent');
+             const isClosed = toolsSheet.classList.contains('translate-y-full');
+             if (!isClosed) {
+                 const height = toolsContent.offsetHeight;
+                 btnUndo.style.bottom = (height + 16) + 'px'; 
+                 btnUndo.classList.remove('undo-floating');
+             } else {
+                 btnUndo.style.bottom = ''; 
+                 btnUndo.classList.add('undo-floating');
+             }
+        }
+
+        window.toggleTools = (forceClose = false) => {
+            const isClosed = toolsSheet.classList.contains('translate-y-full');
+            if (forceClose || !isClosed) {
+                toolsSheet.classList.add('translate-y-full');
+                canvasViewport.style.paddingBottom = '0'; 
+                quickZoomContainer.classList.remove('hidden-behind');
+            } else {
+                toolsSheet.classList.remove('translate-y-full');
+                canvasViewport.style.paddingBottom = '240px'; 
+                quickZoomContainer.classList.add('hidden-behind');
+            }
+            setTimeout(updateUndoPosition, 50); 
+            setTimeout(updateUndoPosition, 310);
+        };
+
+        function resetToolStates() {
+            document.getElementById('brushActiveToggle').checked = false;
+            document.getElementById('eraserActiveToggle').checked = false;
+            document.getElementById('precisionBrushToggle').checked = false;
+            document.getElementById('precisionEraserToggle').checked = false;
+            isPrecisionMode = false;
+            canvasViewport.classList.remove('cursor-crosshair');
+            setTool('none');
+            disableEyedropper();
+            // FIX: Force Hide Cursor visual when resetting
+            brushCursor.style.display = 'none';
+        }
+        
+        window.openSubMenu = (menuName) => {
+            resetToolStates();
+            ['file', 'brush', 'eraser', 'text'].forEach(m => {
+                document.getElementById('menu-' + m).classList.remove('menu-btn-active');
+                document.getElementById('menu-' + m).classList.add('bg-slate-800', 'text-slate-400');
+                document.getElementById('panel-' + m).classList.add('hidden');
+            });
+            document.getElementById('panel-empty').classList.add('hidden');
+            document.getElementById('panel-' + menuName).classList.remove('hidden');
+            const activeBtn = document.getElementById('menu-' + menuName);
+            activeBtn.classList.remove('bg-slate-800', 'text-slate-400');
+            activeBtn.classList.add('menu-btn-active');
+            
+            if(menuName === 'text' && isTextVirtual) {
+                isTextVirtual = false;
+                textOverlay.classList.remove('locked-mode');
+                showNotification("Mode Edit Teks Kembali Aktif", "info");
+            }
+            if (toolsSheet.classList.contains('translate-y-full')) { toggleTools(); }
+            setTimeout(updateUndoPosition, 10);
+        };
+        
+        window.scrollToTop = () => { viewExtractor.scrollTo({ top: 0, behavior: 'smooth' }); };
+        window.scrollToBottom = () => { viewExtractor.scrollTo({ top: viewExtractor.scrollHeight, behavior: 'smooth' }); };
+
+        document.getElementById('fileInput').addEventListener('change', handleFileSelect);
+        document.getElementById('manualEditorLoad').addEventListener('change', handleManualEditorLoad);
+        document.getElementById('zoomSlider').addEventListener('input', (e) => {
+            applyZoom(parseFloat(e.target.value));
+        });
+
+        function updateFloatingControls() {
+            const btnInject = document.getElementById('btnInject');
+            if(isImportedImage) {
+                btnInject.classList.add('btn-disabled');
+                btnInject.classList.remove('animate-pulse-slow');
+            } else {
+                btnInject.classList.remove('btn-disabled');
+                btnInject.classList.add('animate-pulse-slow');
+            }
+        }
+
+        // --- CORE SCANNER LOGIC ---
+        const PNG_SIG_LOOSE = [0x89, 0x50, 0x4E, 0x47];
+        const ZIP_SIG = [0x50, 0x4B, 0x03, 0x04]; 
+
+        async function handleFileSelect(event) {
+            const file = event.target.files[0]; if (!file) return;
+            originalFileName = file.name; 
+            document.getElementById('fileNameDisplay').innerText = file.name;
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            document.getElementById('loadingStatus').innerText = "Membuka Struktur File...";
+
+            try {
+                const buffer = await file.arrayBuffer();
+                originalFileBytes = new Uint8Array(buffer);
+                originalZipData = null; 
+                originalZipFiles = {};
+                
+                if (checkSequence(originalFileBytes, 0, ZIP_SIG)) {
+                    document.getElementById('loadingStatus').innerText = "Analisis Arsip ZIP/JAR...";
+                    const zip = await JSZip.loadAsync(buffer);
+                    originalZipData = zip;
+                    await scanZipContents(zip);
+                } else {
+                    document.getElementById('loadingStatus').innerText = "Deep Scan Binary Raw...";
+                    scanRawBytes(originalFileBytes, originalFileName);
+                }
+            } catch (e) {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+                showNotification("Gagal membaca file: " + e.message, "error");
+            }
+        }
+
+        async function scanZipContents(zip) {
+            foundImages = [];
+            const filePromises = [];
+            zip.forEach((relativePath, zipEntry) => {
+                if (!zipEntry.dir) {
+                    filePromises.push(
+                        zipEntry.async("uint8array").then(data => {
+                            originalZipFiles[relativePath] = data; 
+                            scanBytesForPngs(data, relativePath);
+                        })
+                    );
+                }
+            });
+            await Promise.all(filePromises);
+            finalizeScan();
+        }
+
+        function scanRawBytes(bytes, filename) {
+            foundImages = [];
+            scanBytesForPngs(bytes, filename);
+            finalizeScan();
+        }
+
+        function scanBytesForPngs(bytes, sourcePath) {
+            let i = 0; const len = bytes.length; let foundCount = 0;
+            while (i < len - 8) {
+                if (bytes[i] === 0x89 && bytes[i+1] === 0x50 && bytes[i+2] === 0x4E && bytes[i+3] === 0x47) {
+                    let ptr = i + 8; 
+                    let isValidStructure = false;
+                    while (ptr < len) {
+                        if (ptr + 8 > len) break; 
+                        const chunkLen = (bytes[ptr] << 24) | (bytes[ptr+1] << 16) | (bytes[ptr+2] << 8) | bytes[ptr+3];
+                        if (chunkLen < 0) break; 
+                        const nextPtr = ptr + 12 + chunkLen;
+                        if (nextPtr > len) { break; }
+                        if (bytes[ptr+4] === 0x49 && bytes[ptr+5] === 0x45 && bytes[ptr+6] === 0x4E && bytes[ptr+7] === 0x44) {
+                            isValidStructure = true; ptr = nextPtr; break; 
+                        }
+                        ptr = nextPtr;
+                    }
+                    const pngSize = ptr - i;
+                    if (pngSize > 8) {
+                        const pngData = bytes.slice(i, ptr);
+                        const blob = new Blob([pngData], { type: 'image/png' });
+                        const url = URL.createObjectURL(blob);
+                        const isTrulyStandalone = (i === 0 && ptr >= len);
+                        let name = sourcePath.split('/').pop();
+                        if (foundCount > 0 || !isTrulyStandalone) { name = `${name}_${foundCount}`; }
+                        if (!name.toLowerCase().endsWith('.png') && !name.includes('.')) { name = name + ".png"; }
+
+                        foundImages.push({
+                            index: 0, name: name, path: sourcePath + (isTrulyStandalone ? "" : ` [Part ${foundCount}]`), 
+                            blob: blob, url: url, size: pngSize, originalData: pngData, 
+                            modifiedData: null, modified: false, isBatch: false, 
+                            isHidden: !isTrulyStandalone, sourceFile: sourcePath, offset: i, length: pngSize, isStandalone: isTrulyStandalone
+                        });
+                        foundCount++; i = ptr; continue;
+                    }
+                }
+                i++;
+            }
+        }
+
+        function finalizeScan() {
+            foundImages.sort((a, b) => {
+                if (a.isHidden === b.isHidden) return 0;
+                return a.isHidden ? -1 : 1;
+            });
+            foundImages.forEach((img, idx) => img.index = idx);
+            document.getElementById('loadingOverlay').classList.add('hidden');
+            document.getElementById('statsBar').classList.remove('hidden'); document.getElementById('statsBar').classList.add('flex');
+            document.getElementById('countDisplay').innerText = `${foundImages.length} Aset`;
+            if(foundImages.length > 0) {
+                fabDownload.classList.remove('hidden');
+                quickScrollControls.classList.remove('hidden');
+            } else {
+                fabDownload.classList.add('hidden');
+                quickScrollControls.classList.add('hidden');
+            }
+            renderList();
+            showNotification(`Smart Scan: ${foundImages.length} aset ditemukan!`, "success");
+        }
+
+        function renderList() {
+            const container = document.getElementById('imagesContainer');
+            if(foundImages.length === 0) { 
+                container.innerHTML = `<div id="emptyState" class="text-center py-12 opacity-40 flex flex-col items-center"><i class="fa-solid fa-ghost text-4xl mb-3 text-slate-600"></i><p class="text-sm text-slate-500">Zonk! Tidak ada gambar.</p></div>`; 
+                return; 
+            }
+            container.innerHTML = '';
+            foundImages.forEach((img, idx) => {
+                const el = document.createElement('div');
+                let borderClass = 'border-slate-800';
+                
+                // Changed click action from openPreview to loadToEditor
+                let wrapperClick = `onclick="loadToEditor(${idx})" style="cursor: pointer;"`;
+                let hint = '';
+                
+                if(img.modified) {
+                    if (img.isBatch) {
+                        borderClass = 'border-purple-500/50 shadow-[0_0_15px_rgba(147,51,234,0.1)]';
+                        hint += `<div class="absolute bottom-0 right-0 grad-purple-batch text-white text-[8px] px-1.5 font-bold rounded-tl-md pointer-events-none shadow-sm flex items-center gap-1"><i class="fa-solid fa-layer-group"></i></div>`;
+                    } else {
+                        borderClass = 'border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]';
+                        hint += `<div class="absolute bottom-0 right-0 grad-emerald text-white text-[8px] px-1 font-bold rounded-tl-md pointer-events-none shadow-sm"><i class="fa-solid fa-check"></i></div>`;
+                    }
+                }
+                if(img.isHidden) {
+                     const isTitle = img.sourceFile.includes('title');
+                     const color = isTitle ? 'bg-purple-600/90' : 'bg-amber-600/90';
+                     const icon = isTitle ? 'fa-puzzle-piece' : 'fa-mask';
+                     hint += `<div class="absolute top-0 left-0 ${color} text-white text-[8px] px-1.5 py-0.5 font-bold rounded-br-md pointer-events-none shadow-sm flex items-center gap-1"><i class="fa-solid ${icon}"></i> ${isTitle ? 'PART' : 'EMBED'}</div>`;
+                }
+
+                let sourceInfo = img.isHidden ? `<span class="text-[9px] text-amber-500/80 block truncate font-mono"><i class="fa-solid fa-box-archive mr-1"></i>${img.sourceFile} @${img.offset}</span>` : `<span class="text-[9px] text-slate-600 block truncate font-mono">${img.path}</span>`;
+                
+                let actionBtn = img.modified ? 
+                    `<button onclick="revertImage(${idx})" class="w-full px-2 py-1.5 bg-red-900/30 border border-red-600/30 text-red-400 hover:bg-red-900/50 rounded text-[9px] font-bold transition">RESET</button>` : 
+                    (img.modifiedData ? `<button onclick="restoreModifiedImage(${idx})" class="w-full px-2 py-1.5 bg-purple-900/30 border border-purple-600/30 text-purple-400 hover:bg-purple-900/50 rounded text-[9px] font-bold transition">PERBAIKI</button>` : `<div class="h-[25px]"></div>`);
+                
+                el.className = `flex items-center gap-3 p-3 rounded-xl bg-slate-900 border ${borderClass} active:scale-[0.99] transition`;
+                el.innerHTML = `
+                    <div ${wrapperClick} class="w-14 h-14 shrink-0 bg-[#0f172a] checker-bg rounded-lg flex items-center justify-center p-1 border border-slate-700/50 overflow-hidden relative shadow-inner hover:border-amber-500/50 transition-colors">
+                        <img src="${img.url}" class="max-w-full max-h-full object-contain pixelated">
+                        ${hint}
+                    </div>
+                    <div class="flex-1 min-w-0 pr-2" onclick="loadToEditor(${idx})">
+                        <h4 class="font-bold text-xs text-slate-200 truncate">${img.name}</h4>
+                        <p class="text-[10px] text-slate-500 font-mono mt-0.5">${img.size} B</p>
+                        ${sourceInfo}
+                    </div>
+                    <div class="flex flex-col gap-1.5 w-[70px]">
+                        <input type="file" id="manualInject_${idx}" accept="image/*" class="hidden" onchange="handleManualInjection(event, ${idx})">
+                        <button onclick="document.getElementById('manualInject_${idx}').click()" class="w-full py-1.5 flex items-center justify-center grad-emerald hover:brightness-110 border border-emerald-500/20 text-white rounded text-[9px] shadow active:scale-95 transition">
+                            <i class="fa-solid fa-syringe mr-1"></i> GANTI
+                        </button>
+                        <button onclick="downloadRawAsset(${idx})" class="w-full py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[9px] font-bold text-slate-300 rounded shadow active:scale-95 transition">
+                            <i class="fa-solid fa-download mr-1"></i> UNDUH
+                        </button>
+                        ${actionBtn}
+                    </div>`;
+                container.appendChild(el);
+            });
+        }
+        
+        window.downloadAssetsZip = async () => {
+            if (foundImages.length === 0) { showNotification("Belum ada aset!", "error"); return; }
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            document.getElementById('loadingStatus').innerText = "Repacking Game JAR...";
+            try {
+                const zip = new JSZip();
+                const fileMap = { ...originalZipFiles };
+                for (const img of foundImages) {
+                    if (!img.modified) continue; 
+                    const newData = new Uint8Array(await img.modifiedData.arrayBuffer());
+                    if (img.isStandalone) {
+                        fileMap[img.path] = newData;
+                    } else if (img.isHidden) {
+                        const hostPath = img.sourceFile;
+                        let hostData = fileMap[hostPath];
+                        if (hostData === originalZipFiles[hostPath]) { hostData = new Uint8Array(originalZipFiles[hostPath]); }
+                        if (newData.length > img.length) { throw new Error(`File ${img.name} terlalu besar untuk slot embed! Max: ${img.length}, Baru: ${newData.length}`); }
+                        hostData.set(newData, img.offset);
+                        const remainder = img.length - newData.length;
+                        if (remainder > 0) { const padding = new Uint8Array(remainder).fill(0); hostData.set(padding, img.offset + newData.length); }
+                        fileMap[hostPath] = hostData;
+                    }
+                }
+                for (const [path, data] of Object.entries(fileMap)) { zip.file(path, data); }
+                const content = await zip.generateAsync({type:"blob"});
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(content);
+                let safeName = originalFileName.replace(/\.[^/.]+$/, "");
+                if(!safeName) safeName = "J2ME_Modded";
+                a.download = `${safeName}_Modded.jar`;
+                a.click();
+                showNotification("Game Siap Main! (.jar)", "success");
+            } catch(e) { showNotification("Gagal repack: " + e.message, "error"); } finally { document.getElementById('loadingOverlay').classList.add('hidden'); }
+        }
+
+        // --- EDITOR LOGIC FIXES ---
+
+        function getLocalCoords(clientX, clientY) {
+            const rect = editorCanvas.getBoundingClientRect();
+            let offsetY = 0;
+            // FIX: Precision Mode Logic applies to both Brush and Eraser now
+            if (isPrecisionMode) {
+                offsetY = 60 * (1/scale); 
+            }
+            return { x: (clientX - rect.left) / scale, y: ((clientY - rect.top) / scale) - offsetY };
+        }
+
+        window.toggleMode = (mode) => {
+            if(mode === 'pan') {
+                disableEyedropper();
+                if (currentTool === 'none') {
+                    setTool('idle'); 
+                    showNotification("Mode Geser Mati (Terkunci)", "info");
+                } else {
+                    toggleToolState('brush', false);
+                    toggleToolState('eraser', false);
+                    document.getElementById('brushActiveToggle').checked = false;
+                    document.getElementById('eraserActiveToggle').checked = false;
+                    setTool('none');
+                    showNotification("Mode Geser Aktif", "info");
+                }
+            }
+        };
+        
+        window.togglePrecisionMode = (isActive) => {
+            isPrecisionMode = isActive;
+            document.getElementById('precisionBrushToggle').checked = isActive;
+            document.getElementById('precisionEraserToggle').checked = isActive;
+            if(isActive) {
+                canvasViewport.classList.add('cursor-crosshair');
+                showNotification("Mode Presisi Aktif (Offset Jari)", "info");
+            } else {
+                canvasViewport.classList.remove('cursor-crosshair');
+            }
+        };
+
+        window.toggleEyedropper = (target) => {
+            if (eyedropperActive && eyedropperTargetInput === target) {
+                disableEyedropper();
+                showNotification("Mode Pipet Dimatikan", "info");
+            } else {
+                activateEyedropper(target);
+            }
+        };
+
+        window.activateEyedropper = (target) => {
+            eyedropperActive = true;
+            eyedropperTargetInput = target;
+            canvasViewport.classList.add('cursor-picker');
+            if(target === 'brush') document.getElementById('btnEyedropperBrush').classList.add('btn-eyedropper-active');
+            if(target === 'text') document.getElementById('btnEyedropperText').classList.add('btn-eyedropper-active');
+            showNotification("Mode Pinset: Sentuh warna di layar", "info");
+        };
+
+        function disableEyedropper() {
+            eyedropperActive = false;
+            eyedropperTargetInput = null;
+            canvasViewport.classList.remove('cursor-picker');
+            document.getElementById('btnEyedropperBrush').classList.remove('btn-eyedropper-active');
+            document.getElementById('btnEyedropperText').classList.remove('btn-eyedropper-active');
+        }
+
+        function handlePointerDown(e) {
+            if(e.target.closest('#textOverlay')) return; 
+
+            if(eyedropperActive) {
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                const pos = getLocalCoords(clientX, clientY);
+                pickColorAt(pos.x, pos.y);
+                return;
+            }
+
+            if(e.touches && e.touches.length === 2) {
+                isTouchZooming = true;
+                lastTouchDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+                return;
+            }
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            const pos = getLocalCoords(clientX, clientY);
+
+            if (currentTool === 'none') {
+                isPanning = true;
+                startPanX = clientX - pannedX;
+                startPanY = clientY - pannedY;
+                canvasViewport.style.cursor = 'grabbing';
+            } else if (currentTool === 'brush' || currentTool === 'eraser') {
+                const isMagicBrush = (currentTool === 'brush' && document.getElementById('brushMagicToggle').checked);
+                const isMagicEraser = (currentTool === 'eraser' && document.getElementById('eraserMagicToggle').checked);
+
+                if (isMagicBrush || isMagicEraser) {
+                    saveState();
+                    applyMagicWand(pos.x, pos.y, isMagicEraser);
+                    return; 
+                }
+
+                isDrawing = true;
+                saveState();
+                
+                // Initialize lastDraw for interpolation
+                lastDrawX = pos.x;
+                lastDrawY = pos.y;
+                
+                // Draw initial point
+                paintLine(pos.x, pos.y, pos.x, pos.y, currentTool === 'eraser');
+            }
+        }
+        
+        function pickColorAt(x, y) {
+            const w = editorCanvas.width; const h = editorCanvas.height;
+            x = Math.floor(x); y = Math.floor(y);
+            if(x < 0 || x >= w || y < 0 || y >= h) return;
+            const p = ctx.getImageData(x, y, 1, 1).data;
+            const fullHex = "#" + ((1 << 24) + (p[0] << 16) + (p[1] << 8) + p[2]).toString(16).slice(1);
+            lastEyedropperColor = fullHex;
+            if(eyedropperTargetInput === 'brush') {
+                document.getElementById('brushColorPicker').value = fullHex;
+                updateBrushCursor();
+            } else if(eyedropperTargetInput === 'text') {
+                document.getElementById('textColorPicker').value = fullHex;
+                updateTextStyle();
+            }
+            showNotification(`Warna Diambil: ${fullHex}`, "success");
+            disableEyedropper(); 
+        }
+
+        function handlePointerMove(e) {
+            // FIX: STRICT GHOST CURSOR REMOVAL
+            if (currentTool === 'none') {
+                brushCursor.style.display = 'none';
+                // Lanjutkan jika sedang panning
+                if (!isPanning) return;
+            }
+
+            if(isTouchZooming && e.touches && e.touches.length === 2) {
+                e.preventDefault();
+                const dist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+                const delta = dist - lastTouchDist;
+                const newScale = Math.min(Math.max(0.1, scale + (delta * 0.01)), 10);
+                applyZoom(newScale);
+                lastTouchDist = dist;
+                return;
+            }
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            if (isPanning && currentTool === 'none') {
+                e.preventDefault();
+                pannedX = clientX - startPanX;
+                pannedY = clientY - startPanY;
+                updateTransform(); 
+            } else if (isDrawing || (currentTool !== 'none' && currentTool !== 'idle' && !e.touches) || (isPrecisionMode && currentTool !== 'none')) { 
+                
+                const pos = getLocalCoords(clientX, clientY);
+                
+                // Show Cursor for both brush and eraser
+                if (currentTool === 'brush' || currentTool === 'eraser') {
+                    const size = currentTool === 'brush' ? 
+                        document.getElementById('brushSizeSlider').value : 
+                        document.getElementById('eraserSizeSlider').value;
+                        
+                    brushCursor.style.width = size + 'px'; 
+                    brushCursor.style.height = size + 'px';
+                    
+                    if (currentTool === 'eraser') {
+                         brushCursor.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
+                         brushCursor.style.borderColor = 'red';
+                    } else {
+                         brushCursor.style.backgroundColor = document.getElementById('brushColorPicker').value;
+                         brushCursor.style.borderColor = 'white';
+                    }
+                    
+                    brushCursor.style.left = pos.x + 'px';
+                    brushCursor.style.top = pos.y + 'px';
+                    brushCursor.style.display = 'block';
+                }
+                
+                if (isDrawing && !eyedropperActive) {
+                    e.preventDefault();
+                    if (currentTool === 'brush' || currentTool === 'eraser') {
+                        // FIX: Interpolate line from last position to current
+                        paintLine(lastDrawX, lastDrawY, pos.x, pos.y, currentTool === 'eraser');
+                        lastDrawX = pos.x;
+                        lastDrawY = pos.y;
+                    }
+                }
+            }
+        }
+
+        function handlePointerUp() {
+            isPanning = false; isDrawing = false; isTouchZooming = false;
+            canvasViewport.style.cursor = 'default';
+            lastDrawX = null; lastDrawY = null;
+        }
+
+        canvasViewport.addEventListener('mousedown', handlePointerDown);
+        canvasViewport.addEventListener('touchstart', handlePointerDown, {passive: false});
+        window.addEventListener('mousemove', handlePointerMove);
+        window.addEventListener('touchmove', handlePointerMove, {passive: false});
+        window.addEventListener('mouseup', handlePointerUp);
+        window.addEventListener('touchend', handlePointerUp);
+
+        window.toggleToolState = (toolName, isActive) => {
+            disableEyedropper(); // Safety
+            if (isActive) {
+                currentTool = toolName;
+                brushCursor.style.display = 'block';
+                
+                if (toolName === 'brush') {
+                    document.getElementById('eraserActiveToggle').checked = false;
+                }
+                if (toolName === 'eraser') {
+                    document.getElementById('brushActiveToggle').checked = false;
+                }
+                setTool(toolName);
+                if(isActive) showNotification(`Alat ${toolName === 'brush' ? 'Kuas' : 'Penghapus'} Aktif`, 'success');
+            } else {
+                if (currentTool === toolName) {
+                    setTool('none'); 
+                    brushCursor.style.display = 'none';
+                }
+            }
+        };
+
+        window.setTool = (tool) => {
+            currentTool = tool;
+            const btnModePan = document.getElementById('btnModePan');
+            if (tool === 'none') {
+                btnModePan.classList.remove('grad-slate', 'text-slate-200');
+                btnModePan.classList.add('grad-emerald', 'text-white', 'border-emerald-500');
+            } else {
+                btnModePan.classList.remove('grad-emerald', 'text-white', 'border-emerald-500');
+                btnModePan.classList.add('grad-slate', 'text-slate-200');
+            }
+            updateBrushCursor();
+        };
+
+        function fullEditorReset() {
+            currentTool = 'none';
+            isPanning = false;
+            selectionActive = false;
+            undoStack = [];
+            isTextVirtual = false; 
+            isPrecisionMode = false;
+            disableEyedropper();
+            currentActiveShader = null; 
+            btnApplyAll.classList.add('hidden'); 
+            
+            document.getElementById('brushActiveToggle').checked = false;
+            document.getElementById('eraserActiveToggle').checked = false;
+            document.getElementById('brushMagicToggle').checked = false;
+            document.getElementById('eraserMagicToggle').checked = false;
+            document.getElementById('textVisibleToggle').checked = false;
+            document.getElementById('precisionBrushToggle').checked = false;
+            document.getElementById('precisionEraserToggle').checked = false;
+
+            brushCursor.style.display = 'none';
+            selectionBox.style.display = 'none';
+            document.getElementById('btnUndo').disabled = true;
+            
+            toggleTextVisibility(false);
+            setTool('none');
+            resetZoom();
+        }
+
+        document.getElementById('brushSizeSlider').addEventListener('input', (e) => {
+            document.getElementById('brushSizeVal').innerText = e.target.value + 'px';
+            updateBrushCursor();
+        });
+        document.getElementById('eraserSizeSlider').addEventListener('input', (e) => {
+            document.getElementById('eraserSizeVal').innerText = e.target.value + 'px';
+            updateBrushCursor();
+        });
+        document.getElementById('brushColorPicker').addEventListener('input', updateBrushCursor);
+
+        function updateBrushCursor() {
+            let size = 1;
+            if (currentTool === 'brush') size = document.getElementById('brushSizeSlider').value;
+            if (currentTool === 'eraser') size = document.getElementById('eraserSizeSlider').value;
+            
+            brushCursor.style.width = size + 'px'; brushCursor.style.height = size + 'px';
+            
+            if (currentTool === 'eraser') {
+                 brushCursor.style.backgroundColor = 'rgba(255,255,255,0.5)';
+                 brushCursor.style.borderColor = 'red';
+            } else {
+                 brushCursor.style.backgroundColor = document.getElementById('brushColorPicker').value;
+                 brushCursor.style.borderColor = 'white';
+            }
+        }
+
+        // FIX: Bresenham's Line Algorithm for Continuous Drawing
+        function paintLine(x0, y0, x1, y1, isEraser) {
+            x0 = Math.floor(x0); y0 = Math.floor(y0);
+            x1 = Math.floor(x1); y1 = Math.floor(y1);
+            
+            const dx = Math.abs(x1 - x0);
+            const dy = Math.abs(y1 - y0);
+            const sx = (x0 < x1) ? 1 : -1;
+            const sy = (y0 < y1) ? 1 : -1;
+            let err = dx - dy;
+            
+            while (true) {
+                paintDot(x0, y0, isEraser);
+                if (x0 === x1 && y0 === y1) break;
+                const e2 = 2 * err;
+                if (e2 > -dy) { err -= dy; x0 += sx; }
+                if (e2 < dx) { err += dx; y0 += sy; }
+            }
+        }
+
+        function paintDot(cx, cy, isEraser) {
+            const size = parseInt(isEraser ? document.getElementById('eraserSizeSlider').value : document.getElementById('brushSizeSlider').value);
+            const half = Math.floor(size / 2);
+            
+            if (isEraser) {
+                ctx.clearRect(cx - half, cy - half, size, size);
+            } else {
+                ctx.fillStyle = document.getElementById('brushColorPicker').value;
+                ctx.fillRect(cx - half, cy - half, size, size);
+            }
+        }
+
+        window.applyMagicWand = (cx, cy, isEraser) => {
+            cx = Math.floor(cx);
+            cy = Math.floor(cy);
+            const w = editorCanvas.width;
+            const h = editorCanvas.height;
+
+            if (cx < 0 || cx >= w || cy < 0 || cy >= h) return;
+
+            const imgData = ctx.getImageData(0, 0, w, h);
+            const data = imgData.data;
+            const targetIdx = (cy * w + cx) * 4;
+
+            // Target color (color clicked on)
+            const tR = data[targetIdx];
+            const tG = data[targetIdx + 1];
+            const tB = data[targetIdx + 2];
+            const tA = data[targetIdx + 3];
+
+            // Replacement color
+            let rR, rG, rB, rA;
+            if (isEraser) {
+                rR = 0; rG = 0; rB = 0; rA = 0; // Transparan
+            } else {
+                const hex = document.getElementById('brushColorPicker').value;
+                const bigint = parseInt(hex.slice(1), 16);
+                rR = (bigint >> 16) & 255;
+                rG = (bigint >> 8) & 255;
+                rB = bigint & 255;
+                rA = 255; 
+            }
+
+            // Safety Check: Don't replace color with itself
+            if (!isEraser && tR === rR && tG === rG && tB === rB && tA === rA) {
+                showNotification("Warna target sama dengan warna kuas.", "info");
+                return;
+            }
+            if (isEraser && tA === 0) return;
+
+            let count = 0;
+            const tolerance = 5; 
+
+            for (let i = 0; i < data.length; i += 4) {
+                const cR = data[i];
+                const cG = data[i+1];
+                const cB = data[i+2];
+                const cA = data[i+3];
+
+                if (
+                    Math.abs(cR - tR) <= tolerance &&
+                    Math.abs(cG - tG) <= tolerance &&
+                    Math.abs(cB - tB) <= tolerance &&
+                    Math.abs(cA - tA) <= tolerance
+                ) {
+                    data[i] = rR;
+                    data[i + 1] = rG;
+                    data[i + 2] = rB;
+                    data[i + 3] = rA;
+                    count++;
+                }
+            }
+
+            ctx.putImageData(imgData, 0, 0);
+            showNotification(`Magic: ${count} pixel ${isEraser ? 'dihapus' : 'diwarnai'}!`, "success");
+        };
+
+        window.applyCanvasResize = () => {
+            const newW = parseInt(document.getElementById('resizeW').value);
+            const newH = parseInt(document.getElementById('resizeH').value);
+            if (!newW || !newH || newW < 1 || newH < 1) { showNotification("Ukuran tidak valid!", "error"); return; }
+            saveState(); 
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = newW; tempCanvas.height = newH;
+            const tCtx = tempCanvas.getContext('2d');
+            tCtx.imageSmoothingEnabled = false; 
+            tCtx.drawImage(editorCanvas, 0, 0, newW, newH);
+            editorCanvas.width = newW; editorCanvas.height = newH;
+            ctx = editorCanvas.getContext('2d'); 
+            ctx.imageSmoothingEnabled = false; 
+            ctx.drawImage(tempCanvas, 0, 0);
+            if(currentEditorImageIndex > -1) {
+                const imgName = foundImages[currentEditorImageIndex].name;
+                headerFileName.innerText = `${imgName} (${newW}x${newH})`;
+            }
+            showNotification(`Ukuran diubah ke ${newW}x${newH}`, "success");
+            updateTransform(); 
+        };
+
+        window.clearSelectionArea = () => {
+            saveState();
+            ctx.clearRect(0, 0, editorCanvas.width, editorCanvas.height);
+            showNotification("Kanvas dibersihkan", "warning");
+        };
+
+        function animateOverlay() {
+            if (!textState.visible) {
+                if(overlaySyncId) cancelAnimationFrame(overlaySyncId);
+                return;
+            }
+            syncTextOverlayVisuals();
+            overlaySyncId = requestAnimationFrame(animateOverlay);
+        }
+
+        window.toggleTextVisibility = (isVisible) => {
+            textState.visible = isVisible;
+            if (isVisible) {
+                const defaultText = "TEKS";
+                if (editorCanvas.width <= 100 || editorCanvas.height <= 100) {
+                     textState.w = editorCanvas.width;
+                     textState.h = editorCanvas.height;
+                     textState.x = 0; 
+                     textState.y = 0;
+                     textState.fontSize = Math.max(8, Math.floor(editorCanvas.height / 2.5));
+                } else {
+                    textState.fontSize = 10;
+                    ctx.font = `${textState.fontSize}px Arial`; 
+                    const metrics = ctx.measureText(defaultText);
+                    const actualWidth = Math.ceil(metrics.width) + 4; 
+                    const actualHeight = Math.ceil(textState.fontSize * 1.2);
+                    textState.w = actualWidth; textState.h = actualHeight;
+                    textState.x = Math.floor((editorCanvas.width - textState.w) / 2);
+                    textState.y = Math.floor((editorCanvas.height - textState.h) / 2);
+                }
+                textOverlay.style.display = 'flex';
+                textOverlay.classList.remove('locked-mode');
+                isTextVirtual = false;
+                guideX.style.display = 'block';
+                guideY.style.display = 'block';
+                animateOverlay();
+                updateTextStyle();
+                document.getElementById('fontSizeSlider').value = textState.fontSize;
+                document.getElementById('fontSizeDisplay').innerText = textState.fontSize;
+                showNotification("Layer Teks Aktif", "info");
+            } else {
+                textOverlay.style.display = 'none';
+                guideX.style.display = 'none';
+                guideY.style.display = 'none';
+                isTextVirtual = false;
+                textOverlay.classList.remove('locked-mode');
+                if(overlaySyncId) cancelAnimationFrame(overlaySyncId);
+            }
+        }
+
+        function syncTextOverlayVisuals() {
+            if (!textState.visible) return;
+            const screenX = textState.x * scale;
+            const screenY = textState.y * scale;
+            const screenW = textState.w * scale;
+            const screenH = textState.h * scale;
+            const screenFontSize = textState.fontSize * scale;
+            
+            const rect = canvasWrapper.getBoundingClientRect();
+            const viewRect = canvasViewport.getBoundingClientRect();
+            
+            const offsetX = rect.left - viewRect.left;
+            const offsetY = rect.top - viewRect.top;
+
+            textOverlay.style.left = (offsetX + screenX) + 'px'; 
+            textOverlay.style.top = (offsetY + screenY) + 'px';
+            textOverlay.style.width = screenW + 'px'; 
+            textOverlay.style.height = screenH + 'px';
+            textInner.style.fontSize = screenFontSize + "px";
+            
+            if (document.getElementById('outlineCheck').checked) {
+                const outlineSize = parseFloat(document.getElementById('outlineSizeSlider').value) || 0;
+                const col = document.getElementById('outlineColorPicker').value;
+                const scaledStroke = Math.max(0, outlineSize * scale * 1.5); 
+                textInner.style.webkitTextStroke = `${scaledStroke}px ${col}`;
+                textInner.style.paintOrder = 'stroke fill';
+            } else { 
+                textInner.style.webkitTextStroke = '0px transparent'; 
+            }
+        }
+
+        function handleTextStart(e, mode) {
+            if(isTextVirtual) return; 
+            e.stopPropagation(); e.preventDefault();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            textDragStart = {x: clientX, y: clientY};
+            if(mode === 'drag') isTextDragging = true;
+            if(mode === 'resize') isTextResizing = true;
+        }
+
+        function handleTextMove(e) {
+            if((!isTextDragging && !isTextResizing) || isTextVirtual) return;
+            e.preventDefault();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            const dxLogic = (clientX - textDragStart.x) / scale;
+            const dyLogic = (clientY - textDragStart.y) / scale;
+            if(isTextDragging) {
+                textState.x += dxLogic; textState.y += dyLogic;
+                const cx = editorCanvas.width / 2; const cy = editorCanvas.height / 2;
+                const tcx = textState.x + textState.w/2; const tcy = textState.y + textState.h/2;
+                if(Math.abs(tcx - cx) < 3) { textState.x = cx - textState.w/2; }
+                if(Math.abs(tcy - cy) < 3) { textState.y = cy - textState.h/2; }
+            }
+            if(isTextResizing) { textState.w = Math.max(5, textState.w + dxLogic); textState.h = Math.max(5, textState.h + dyLogic); }
+            textDragStart = {x: clientX, y: clientY};
+        }
+
+        function handleTextEnd() {
+            isTextDragging = false; isTextResizing = false;
+            textState.x = Math.round(textState.x); textState.y = Math.round(textState.y);
+            textState.w = Math.round(textState.w); textState.h = Math.round(textState.h);
+        }
+
+        document.getElementById('dragHandle').addEventListener('touchstart', (e)=>handleTextStart(e,'drag'), {passive:false});
+        document.getElementById('dragHandle').addEventListener('mousedown', (e)=>handleTextStart(e,'drag'));
+        document.getElementById('handle-br').addEventListener('touchstart', (e)=>handleTextStart(e,'resize'), {passive:false});
+        document.getElementById('handle-br').addEventListener('mousedown', (e)=>handleTextStart(e,'resize'));
+        window.addEventListener('touchmove', handleTextMove, {passive:false});
+        window.addEventListener('mousemove', handleTextMove);
+        window.addEventListener('touchend', handleTextEnd);
+        window.addEventListener('mouseup', handleTextEnd);
+
+        document.getElementById('fontSizeSlider').addEventListener('input', (e) => {
+            textState.fontSize = parseInt(e.target.value);
+            document.getElementById('fontSizeDisplay').innerText = textState.fontSize;
+        });
+        
+        document.getElementById('outlineSizeSlider').addEventListener('input', (e) => {
+            const val = e.target.value;
+            document.getElementById('outlineSizeVal').innerText = val + 'px';
+            const check = document.getElementById('outlineCheck');
+            if(!check.checked && parseFloat(val) > 0) {
+                check.checked = true;
+                document.getElementById('outlineOptions').classList.remove('opacity-50','pointer-events-none');
+            }
+            if(textState.visible) syncTextOverlayVisuals();
+        });
+
+        document.getElementById('textColorPicker').addEventListener('input', updateTextStyle);
+        document.getElementById('outlineCheck').addEventListener('change', (e) => {
+             const div = document.getElementById('outlineOptions');
+             if(e.target.checked) div.classList.remove('opacity-50','pointer-events-none');
+             else div.classList.add('opacity-50','pointer-events-none');
+             if(textState.visible) syncTextOverlayVisuals(); 
+        });
+        document.getElementById('outlineColorPicker').addEventListener('input', () => {
+             if(textState.visible) syncTextOverlayVisuals(); 
+        });
+
+        window.toggleBold = () => { textState.bold = !textState.bold; document.getElementById('btnBold').classList.toggle('text-emerald-500', textState.bold); updateTextStyle(); }
+        window.toggleItalic = () => { textState.italic = !textState.italic; document.getElementById('btnItalic').classList.toggle('text-emerald-500', textState.italic); updateTextStyle(); }
+        
+        function updateTextStyle() { 
+            textInner.style.color = document.getElementById('textColorPicker').value; 
+            textInner.style.fontWeight = textState.bold ? 'bold' : 'normal'; 
+            textInner.style.fontStyle = textState.italic ? 'italic' : 'normal'; 
+        }
+
+        function rgbToHex(r, g, b) { return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1); }
+        
+        window.handleColorSmartAction = () => {
+            const btn = document.getElementById('btnColorSmart');
+            const lbl = document.getElementById('lblColorSmart');
+            
+            const cx = editorCanvas.width / 2;
+            const cy = editorCanvas.height / 2;
+            const tx = textState.x + textState.w / 2;
+            const ty = textState.y + textState.h / 2;
+            const dist = Math.hypot(tx - cx, ty - cy);
+            const isCentered = dist < 20; 
+
+            if (hasPickedColor) { 
+                const textColor = document.getElementById('textColorPicker').value;
+                const outlineColor = document.getElementById('outlineColorPicker').value;
+                document.getElementById('textColorPicker').value = outlineColor;
+                document.getElementById('outlineColorPicker').value = textColor;
+                updateTextStyle();
+                if(textState.visible) syncTextOverlayVisuals();
+                hasPickedColor = false;
+                lbl.innerText = "OTOMATIS";
+                btn.classList.remove('grad-purple');
+                btn.classList.add('grad-amber');
+                showNotification("Warna Dibalik", "info");
+                return;
+            } 
+            
+            if (isCentered) {
+                copyColorFromImage(); 
+            } else {
+                if (lastEyedropperColor) {
+                     document.getElementById('textColorPicker').value = lastEyedropperColor;
+                     const r = parseInt(lastEyedropperColor.slice(1,3), 16);
+                     const g = parseInt(lastEyedropperColor.slice(3,5), 16);
+                     const b = parseInt(lastEyedropperColor.slice(5,7), 16);
+                     const yiq = ((r*299)+(g*587)+(b*114))/1000;
+                     const outlineCol = (yiq >= 128) ? '#000000' : '#ffffff';
+                     document.getElementById('outlineColorPicker').value = outlineCol;
+                     document.getElementById('outlineCheck').checked = true;
+                     document.getElementById('outlineOptions').classList.remove('opacity-50','pointer-events-none');
+                     updateTextStyle();
+                     if(textState.visible) syncTextOverlayVisuals();
+                     hasPickedColor = true;
+                     document.getElementById('lblColorSmart').innerText = "BALIK";
+                     btn.classList.remove('grad-amber');
+                     btn.classList.add('grad-purple');
+                     showNotification("Warna dari Pipet diterapkan", "success");
+                } else {
+                     copyColorFromImage();
+                }
+            }
+        };
+
+        function copyColorFromImage() {
+             const w = editorCanvas.width; const h = editorCanvas.height;
+             if (w === 0 || h === 0) return;
+             const imageData = ctx.getImageData(0, 0, w, h);
+             const data = imageData.data;
+             const colorCounts = {};
+             for (let i = 0; i < data.length; i += 4) {
+                 const r = data[i], g = data[i+1], b = data[i+2], a = data[i+3];
+                 if (a < 50) continue;
+                 const hex = rgbToHex(r, g, b);
+                 colorCounts[hex] = (colorCounts[hex] || 0) + 1;
+             }
+             const sortedColors = Object.entries(colorCounts).sort((a, b) => b[1] - a[1]);
+             if (sortedColors.length > 0) {
+                 const dominantColor = sortedColors[0][0];
+                 document.getElementById('textColorPicker').value = dominantColor;
+                 let outlineColor = "#000000";
+                 if (sortedColors.length > 1) { outlineColor = sortedColors[1][0]; }
+                 document.getElementById('outlineColorPicker').value = outlineColor;
+                 document.getElementById('outlineCheck').checked = true;
+                 document.getElementById('outlineOptions').classList.remove('opacity-50','pointer-events-none');
+                 updateTextStyle();
+                 if(textState.visible) syncTextOverlayVisuals();
+                 hasPickedColor = true;
+                 document.getElementById('lblColorSmart').innerText = "BALIK";
+                 const btn = document.getElementById('btnColorSmart');
+                 btn.classList.remove('grad-amber');
+                 btn.classList.add('grad-purple');
+                 showNotification("Warna Diambil! Tekan lagi untuk Balik.", "success");
+             } else { showNotification("Canvas kosong / transparan", "error"); }
+        };
+
+        window.applyTextPrecise = () => {
+            if (!textState.visible) return;
+            isTextVirtual = true;
+            textOverlay.classList.add('locked-mode');
+            saveState(true); 
+
+            if(currentEditorImageIndex > -1) {
+                foundImages[currentEditorImageIndex].textLayerData = JSON.parse(JSON.stringify(textState));
+                foundImages[currentEditorImageIndex].textLayerContent = textInner.innerText;
+                foundImages[currentEditorImageIndex].textLayerColors = {
+                    text: document.getElementById('textColorPicker').value,
+                    outline: document.getElementById('outlineColorPicker').value,
+                    outlineSize: document.getElementById('outlineSizeSlider').value,
+                    hasOutline: document.getElementById('outlineCheck').checked
+                };
+            }
+            showNotification("Teks Diterapkan (Mode Pratinjau Jernih)", "success");
+        };
+
+        window.rasterizeTextLayer = async () => {
+            if ((!textState.visible && !isTextVirtual)) return;
+            const w = editorCanvas.width;
+            const h = editorCanvas.height;
+            const SCALE = 4;
+            const highResCanvas = document.createElement('canvas');
+            highResCanvas.width = w * SCALE;
+            highResCanvas.height = h * SCALE;
+            const hCtx = highResCanvas.getContext('2d');
+            
+            let fontStyle = "";
+            if (textState.bold) fontStyle += "bold ";
+            if (textState.italic) fontStyle += "italic ";
+            
+            hCtx.font = `${fontStyle}${textState.fontSize * SCALE}px Arial`;
+            hCtx.textBaseline = 'middle'; 
+            hCtx.textAlign = 'center';
+            const centerX = (textState.x + (textState.w / 2)) * SCALE;
+            const centerY = (textState.y + (textState.h / 2)) * SCALE;
+            if (document.getElementById('outlineCheck').checked) {
+                const strokeSize = parseFloat(document.getElementById('outlineSizeSlider').value);
+                hCtx.lineJoin = 'round'; 
+                hCtx.lineCap = 'round';
+                hCtx.miterLimit = 2; 
+                hCtx.lineWidth = strokeSize * 2 * SCALE; 
+                hCtx.strokeStyle = document.getElementById('outlineColorPicker').value;
+                hCtx.strokeText(textInner.innerText, centerX, centerY);
+            }
+            hCtx.fillStyle = document.getElementById('textColorPicker').value;
+            hCtx.fillText(textInner.innerText, centerX, centerY);
+            const finalCanvas = document.createElement('canvas');
+            finalCanvas.width = w; finalCanvas.height = h;
+            const fCtx = finalCanvas.getContext('2d');
+            fCtx.imageSmoothingEnabled = false; 
+            fCtx.drawImage(editorCanvas, 0, 0);
+            fCtx.imageSmoothingEnabled = true; 
+            fCtx.imageSmoothingQuality = 'high'; 
+            fCtx.drawImage(highResCanvas, 0, 0, w, h);
+            ctx.clearRect(0,0,w,h);
+            ctx.drawImage(finalCanvas, 0, 0);
+        };
+
+        // --- NEW: SMART COMPRESSION HELPER ---
+        async function smartCompress(buffer, w, h, targetLimit) {
+            if (!UPNG) { throw new Error("UPNG Library missing"); }
+            // Strategy: 0 (Lossless), then 256 colors down to 2 colors
+            const depths = [0, 256, 128, 64, 32, 16, 8, 4, 2];
+            let bestRes = null;
+
+            for (let d of depths) {
+                const png = UPNG.encode([buffer], w, h, d);
+                // If we found one that fits, return immediately (optimization)
+                if (targetLimit && png.byteLength <= targetLimit) {
+                    return png;
+                }
+                // Track best effort (smallest) just in case we never hit the target
+                if (!bestRes || png.byteLength < bestRes.byteLength) {
+                    bestRes = png;
+                }
+            }
+            // Return valid result if under limit, or null if absolutely impossible
+            if (targetLimit && bestRes && bestRes.byteLength > targetLimit) {
+                return null;
+            }
+            return bestRes;
+        }
+
+        window.handleManualInjection = (event, index) => {
+            const file = event.target.files[0]; 
+            event.target.value = ''; // Reset
+            
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const img = new Image();
+                img.onload = async () => {
+                    document.getElementById('loadingOverlay').classList.remove('hidden');
+                    document.getElementById('loadingStatus').innerText = "Injeksi Manual: Optimasi...";
+                    
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = img.width; tempCanvas.height = img.height;
+                    const tCtx = tempCanvas.getContext('2d'); 
+                    tCtx.drawImage(img, 0, 0);
+                    
+                    try {
+                        const buffer = tCtx.getImageData(0,0,img.width,img.height).data.buffer;
+                        const target = foundImages[index];
+                        
+                        // FIX: USE SMART COMPRESS
+                        const bestBuffer = await smartCompress(buffer, img.width, img.height, target.isHidden ? target.size : null);
+
+                        document.getElementById('loadingOverlay').classList.add('hidden');
+                        if (bestBuffer) {
+                            showNotification("Injeksi & Kompresi Berhasil", "success");
+                            const blob = new Blob([bestBuffer], {type:'image/png'});
+                            target.modifiedData = blob; target.blob = blob; target.url = URL.createObjectURL(blob); target.modified = true;
+                            renderList();
+                        } else { 
+                            if(target.isHidden) showNotification(`Gagal Total: Tidak bisa dikompresi di bawah ${target.size} B`, "error");
+                            else showNotification("Gagal memproses gambar", "error"); 
+                        }
+                    } catch(err) { document.getElementById('loadingOverlay').classList.add('hidden'); showNotification("Error Injeksi: " + err.message, "error"); }
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        };
+
+        window.loadToEditor = (index) => {
+            fullEditorReset(); 
+            const imgData = foundImages[index]; currentEditorImageIndex = index;
+            isImportedImage = false; 
+            updateFloatingControls();
+            document.getElementById('enhancementPanel').classList.remove('hidden');
+            const img = new Image();
+            img.onload = () => {
+                editorCanvas.width = img.width; editorCanvas.height = img.height;
+                ctx.imageSmoothingEnabled = false; 
+                ctx.clearRect(0,0,img.width, img.height); ctx.drawImage(img, 0, 0);
+                originalImportedImage = document.createElement('canvas'); originalImportedImage.width = img.width; originalImportedImage.height = img.height; originalImportedImage.getContext('2d').drawImage(img, 0, 0);
+                
+                headerFileName.innerText = imgData.name + ` (${img.width}x${img.height})`;
+                document.getElementById('resizeW').value = img.width; document.getElementById('resizeH').value = img.height;
+                switchView('editor'); 
+                
+                const viewport = document.getElementById('canvasViewport');
+                const vW = viewport.clientWidth - 40; 
+                const vH = viewport.clientHeight - 80; 
+                
+                const scaleW = vW / img.width;
+                const scaleH = vH / img.height;
+                let fitScale = Math.min(scaleW, scaleH);
+                if (fitScale > 1) {
+                    fitScale = 1;
+                }
+                pannedX = 0; pannedY = 0;
+                applyZoom(fitScale);
+            };
+            img.src = imgData.url;
+        }
+
+        window.injectFromEditor = async () => {
+            if (isImportedImage) return; 
+            toggleTools(true);
+            
+            selectionBox.style.display = 'none'; selectionActive = false; brushCursor.style.display = 'none';
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            document.getElementById('loadingStatus').innerText = "Editor: Super Sampling...";
+            await new Promise(r => setTimeout(r, 100)); 
+            try {
+                if(textState.visible || isTextVirtual) {
+                    await rasterizeTextLayer();
+                }
+                const w = editorCanvas.width; const h = editorCanvas.height;
+                const target = foundImages[currentEditorImageIndex];
+                const buffer = ctx.getImageData(0,0,w,h).data.buffer;
+                
+                document.getElementById('loadingStatus').innerText = "Editor: Kompresi Cerdas...";
+                
+                // FIX: USE SMART COMPRESS
+                const bestBuffer = await smartCompress(buffer, w, h, target.isHidden ? target.size : null);
+
+                document.getElementById('loadingOverlay').classList.add('hidden');
+                if (bestBuffer) {
+                    showNotification("Disimpan ke Daftar (Siap Ekspor)", "success");
+                    const blob = new Blob([bestBuffer], {type:'image/png'});
+                    target.modifiedData = blob; target.blob = blob; target.url = URL.createObjectURL(blob); target.modified = true;
+                    renderList(); 
+                    showNotification("Perubahan disimpan! Lanjut edit...", "success");
+                } else {
+                    showNotification(`Gagal: Ukuran hasil edit masih terlalu besar untuk slot ini.`, "error");
+                }
+            } catch(e) { document.getElementById('loadingOverlay').classList.add('hidden'); showNotification("Error: " + e.message, "error"); }
+        }
+
+        window.revertImage = (index) => {
+            const img = foundImages[index];
+            const blob = new Blob([img.originalData], {type:'image/png'});
+            img.blob = blob; img.url = URL.createObjectURL(blob); img.modified = false;
+            img.textLayerData = null; 
+            img.isBatch = false; 
+            renderList();
+            showNotification("Gambar di-reset ke asli", "info");
+        }
+
+        window.restoreModifiedImage = (index) => {
+             const imgData = foundImages[index]; if(!imgData.modifiedData) return;
+             fullEditorReset(); 
+             currentEditorImageIndex = index; isImportedImage = false; updateFloatingControls();
+             document.getElementById('enhancementPanel').classList.remove('hidden');
+             const img = new Image();
+             const hasTextLayer = !!imgData.textLayerData;
+             img.onload = () => {
+                editorCanvas.width = img.width; editorCanvas.height = img.height;
+                ctx.imageSmoothingEnabled = false; 
+                ctx.clearRect(0,0,img.width, img.height); 
+                ctx.drawImage(img, 0, 0);
+                originalImportedImage = document.createElement('canvas'); 
+                originalImportedImage.width = img.width; 
+                originalImportedImage.height = img.height; 
+                originalImportedImage.getContext('2d').drawImage(img, 0, 0);
+                headerFileName.innerText = imgData.name + ` (${img.width}x${img.height})`;
+                document.getElementById('resizeW').value = img.width; document.getElementById('resizeH').value = img.height;
+                
+                if(hasTextLayer) {
+                    textState = JSON.parse(JSON.stringify(imgData.textLayerData));
+                    textInner.innerText = imgData.textLayerContent || "TEKS";
+                    if(imgData.textLayerColors) {
+                        document.getElementById('textColorPicker').value = imgData.textLayerColors.text;
+                        document.getElementById('outlineColorPicker').value = imgData.textLayerColors.outline;
+                        const outlineSizeSlider = document.getElementById('outlineSizeSlider');
+                        outlineSizeSlider.value = imgData.textLayerColors.outlineSize;
+                        document.getElementById('outlineSizeVal').innerText = imgData.textLayerColors.outlineSize + 'px';
+                        const outlineCheck = document.getElementById('outlineCheck');
+                        outlineCheck.checked = imgData.textLayerColors.hasOutline;
+                        outlineSizeSlider.dispatchEvent(new Event('input'));
+                        outlineCheck.dispatchEvent(new Event('change'));
+                    }
+                    textState.italic = imgData.textLayerData.italic || false; // Restore Italic
+                    toggleTextVisibility(true);
+                    syncTextOverlayVisuals();
+                    document.getElementById('textVisibleToggle').checked = true;
+                    openSubMenu('text');
+                }
+                switchView('editor'); 
+                
+                const viewport = document.getElementById('canvasViewport');
+                const vW = viewport.clientWidth - 40; const vH = viewport.clientHeight - 80;
+                let fitScale = Math.min(vW / img.width, vH / img.height);
+                if (fitScale > 1) fitScale = 1;
+                pannedX = 0; pannedY = 0;
+                applyZoom(fitScale);
+
+                showNotification(hasTextLayer ? "Layer Teks Dipulihkan" : "Gambar Flat Dimuat", "info");
+            };
+            if (hasTextLayer) {
+                const blobOriginal = new Blob([imgData.originalData], { type: 'image/png' });
+                img.src = URL.createObjectURL(blobOriginal);
+            } else {
+                img.src = URL.createObjectURL(imgData.modifiedData);
+            }
+        }
+
+        function saveState(withText = false) {
+             if (undoStack.length >= MAX_UNDO) undoStack.shift();
+             let state = {
+                 data: ctx.getImageData(0, 0, editorCanvas.width, editorCanvas.height),
+                 textData: withText ? {
+                     state: JSON.parse(JSON.stringify(textState)),
+                     content: textInner.innerText,
+                     colors: {
+                        text: document.getElementById('textColorPicker').value,
+                        outline: document.getElementById('outlineColorPicker').value,
+                        outlineSize: document.getElementById('outlineSizeSlider').value,
+                        hasOutline: document.getElementById('outlineCheck').checked
+                     }
+                 } : null
+             };
+             undoStack.push(state);
+             document.getElementById('btnUndo').disabled = false;
+        }
+
+        window.undo = () => { 
+            if (undoStack.length > 0) { 
+                const state = undoStack.pop();
+                if (editorCanvas.width !== state.data.width || editorCanvas.height !== state.data.height) {
+                    editorCanvas.width = state.data.width;
+                    editorCanvas.height = state.data.height;
+                    document.getElementById('resizeW').value = state.data.width;
+                    document.getElementById('resizeH').value = state.data.height;
+                }
+                ctx.putImageData(state.data, 0, 0); 
+                if (state.textData) {
+                    textState = state.textData.state;
+                    textInner.innerText = state.textData.content;
+                    document.getElementById('textColorPicker').value = state.textData.colors.text;
+                    document.getElementById('outlineColorPicker').value = state.textData.colors.outline;
+                    document.getElementById('outlineSizeSlider').value = state.textData.colors.outlineSize;
+                    document.getElementById('outlineCheck').checked = state.textData.colors.hasOutline;
+                    toggleTextVisibility(true);
+                    document.getElementById('textVisibleToggle').checked = true;
+                    openSubMenu('text'); 
+                    showNotification("Layer Teks Dikembalikan", "info");
+                } else {
+                    if(textState.visible) {
+                         toggleTextVisibility(false);
+                         document.getElementById('textVisibleToggle').checked = false;
+                    }
+                }
+                if(undoStack.length === 0) document.getElementById('btnUndo').disabled = true; 
+            } 
+        }
+        
+        window.resetZoom = () => { scale = 1; pannedX = 0; pannedY = 0; applyZoom(1); }
+        function applyZoom(val) { 
+            scale = val; 
+            document.getElementById('zoomSlider').value = scale; 
+            document.getElementById('zoomValDisplay').innerText = scale.toFixed(1) + 'x';
+            updateTransform(); 
+            if(textState.visible) syncTextOverlayVisuals();
+        }
+        function updateTransform() { canvasWrapper.style.transform = `translate(${pannedX}px, ${pannedY}px) scale(${scale})`; }
+
+        window.downloadCurrentImage = () => {
+             if(textState.visible || isTextVirtual) {
+                 (async () => {
+                    await rasterizeTextLayer();
+                    finalizeDownload();
+                 })();
+             } else {
+                 finalizeDownload();
+             }
+        };
+        
+        function finalizeDownload() {
+             let fname = "edited_image.png";
+             if (currentEditorImageIndex !== -1) fname = foundImages[currentEditorImageIndex].name;
+             else if (isImportedImage) fname = "imported_enhanced.png";
+             editorCanvas.toBlob((blob) => {
+                const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fname; a.click();
+                showNotification("Gambar disimpan!", "success");
+             }, 'image/png');
+        }
+        
+        window.downloadRawAsset = (index) => {
+            const img = foundImages[index];
+            if (!img) return;
+            const a = document.createElement('a');
+            a.href = img.url;
+            a.download = img.name;
+            a.click();
+            showNotification(`Mengunduh ${img.name}...`, "info");
+        };
+
+        function showNotification(msg, type) {
+            const div = document.createElement('div');
+            const colorClass = type === 'success' ? 'grad-emerald' : (type === 'error' ? 'grad-red' : 'grad-blue');
+            div.className = `${colorClass} text-white px-4 py-2 rounded-full shadow-lg text-[10px] font-bold flex items-center gap-2 animate-[slide-down_0.3s] backdrop-blur-md bg-opacity-95 border border-white/20`;
+            div.innerHTML = `<i class="fa-solid fa-info-circle"></i> ${msg}`;
+            document.getElementById('notificationArea').innerHTML = ''; 
+            document.getElementById('notificationArea').appendChild(div); 
+            setTimeout(() => div.remove(), 2500);
+        }
+
+        function checkSequence(data, offset, seq) { if (offset + seq.length > data.length) return false; for(let i=0; i<seq.length; i++) if(data[offset+i] !== seq[i]) return false; return true; }
+
+        function handleManualEditorLoad(e) {
+            const file = e.target.files[0]; 
+            e.target.value = '';
+
+            if(!file) return;
+            const img = new Image(); 
+            img.onload = () => {
+                fullEditorReset(); 
+                isImportedImage = true;
+                currentEditorImageIndex = -1; 
+                editorCanvas.width = img.width; editorCanvas.height = img.height;
+                ctx.imageSmoothingEnabled = false;
+                originalImportedImage = document.createElement('canvas'); originalImportedImage.width = img.width; originalImportedImage.height = img.height; originalImportedImage.getContext('2d').drawImage(img, 0, 0);
+                ctx.clearRect(0,0,editorCanvas.width, editorCanvas.height); ctx.drawImage(img,0,0);
+                document.getElementById('enhancementPanel').classList.remove('hidden');
+                headerFileName.innerText = `External Import (${img.width}x${img.height})`;
+                updateFloatingControls();
+                showNotification("Gambar Gallery Dimuat", "success"); 
+                switchView('editor'); toggleTools(true);
+                
+                const viewport = document.getElementById('canvasViewport');
+                let fitScale = Math.min((viewport.clientWidth-40)/img.width, (viewport.clientHeight-80)/img.height);
+                if(fitScale > 1) fitScale = 1;
+                pannedX = 0; pannedY = 0;
+                applyZoom(fitScale);
+            }; 
+            img.src = URL.createObjectURL(file);
+        }
+		
+        window.openBlankEditor = () => {
+            fullEditorReset(); 
+            const defaultW = 240;
+            const defaultH = 320;
+            editorCanvas.width = defaultW;
+            editorCanvas.height = defaultH;
+            ctx.clearRect(0, 0, defaultW, defaultH);
+            originalImportedImage = document.createElement('canvas');
+            originalImportedImage.width = defaultW;
+            originalImportedImage.height = defaultH;
+            headerFileName.innerText = `Blank Canvas (${defaultW}x${defaultH})`;
+            document.getElementById('resizeW').value = defaultW;
+            document.getElementById('resizeH').value = defaultH;
+            currentEditorImageIndex = -1; 
+            isImportedImage = true; 
+            document.getElementById('enhancementPanel').classList.remove('hidden');
+            updateFloatingControls();
+            switchView('editor');
+            toggleTools(true); 
+            showNotification("Kanvas Kosong Siap", "info");
+        };
+        
+        window.openOutlineMenu = () => {
+             document.getElementById('outlineSelectionModal').classList.remove('hidden');
+        };
+        
+        window.navigateEditor = (direction) => {
+            if (foundImages.length === 0 || isImportedImage) {
+                showNotification("Navigasi tidak tersedia (Import/Kosong)", "error");
+                return;
+            }
+            let nextIndex = currentEditorImageIndex + direction;
+            
+            if (nextIndex >= foundImages.length) nextIndex = 0;
+            if (nextIndex < 0) nextIndex = foundImages.length - 1;
+            
+            loadToEditor(nextIndex);
+            showNotification(`Gambar ${nextIndex + 1} dari ${foundImages.length}`, "info");
+        };
+
+        window.applyShader = async (type) => {
+            if (!originalImportedImage) { showNotification("Error: Tidak ada data asli!", "error"); return; }
+            saveState();
+            currentActiveShader = type; 
+            btnApplyAll.classList.remove('hidden'); 
+
+            const w = editorCanvas.width;
+            const h = editorCanvas.height;
+            const imgData = ctx.getImageData(0, 0, w, h); 
+            const d = imgData.data;
+
+            if (type === 'natural') {
+                const sat = 1.3; const con = 10;  
+                const factor = (259 * (con + 255)) / (255 * (259 - con));
+                for(let i=0; i<d.length; i+=4) {
+                    let r = d[i], g = d[i+1], b = d[i+2];
+                    const gray = 0.299*r + 0.587*g + 0.114*b;
+                    r = gray + (r - gray) * sat; g = gray + (g - gray) * sat; b = gray + (b - gray) * sat;
+                    r = factor * (r - 128) + 128; g = factor * (g - 128) + 128; b = factor * (b - 128) + 128;
+                    d[i] = r; d[i+1] = g; d[i+2] = b;
+                }
+                ctx.putImageData(imgData, 0, 0);
+                showNotification("Natural Color Applied", "success");
+            }
+            else if (type === 'grayscale') {
+                for(let i=0; i<d.length; i+=4) {
+                    const r = d[i], g = d[i+1], b = d[i+2];
+                    const gray = 0.299*r + 0.587*g + 0.114*b;
+                    d[i] = gray; d[i+1] = gray; d[i+2] = gray;
+                }
+                ctx.putImageData(imgData, 0, 0);
+                showNotification("Grayscale Applied", "success");
+            }
+            else if (type === 'warmth') {
+                 for(let i=0; i<d.length; i+=4) {
+                    d[i] = Math.min(255, d[i] + 30); 
+                    d[i+2] = Math.max(0, d[i+2] - 15); 
+                }
+                ctx.putImageData(imgData, 0, 0);
+                showNotification("Warmth Retro Applied", "success");
+            }
+             else if (type === 'cool') {
+                 for(let i=0; i<d.length; i+=4) {
+                    d[i] = Math.max(0, d[i] - 10); 
+                    d[i+2] = Math.min(255, d[i+2] + 25); 
+                }
+                ctx.putImageData(imgData, 0, 0);
+                showNotification("Cool Cyber Applied", "success");
+            }
+            else if (type === 'outline' || type === 'outline_white' || type === 'outline_black') {
+                let r=255, g=255, b=255; 
+                let label = "Putih";
+                if(type === 'outline_black') { r=0; g=0; b=0; label = "Hitam"; }
+                
+                const copy = new Uint8ClampedArray(d);
+                for(let y=0; y<h; y++) {
+                    for(let x=0; x<w; x++) {
+                        const idx = (y * w + x) * 4;
+                        if (copy[idx+3] === 0) { 
+                             let neighborFound = false;
+                             const neighbors = [[0,-1], [0,1], [-1,0], [1,0]];
+                             for(let n of neighbors) {
+                                 const nx = x+n[0]; const ny = y+n[1];
+                                 if(nx>=0 && nx<w && ny>=0 && ny<h) {
+                                     const nIdx = (ny * w + nx) * 4;
+                                     if(copy[nIdx+3] > 10) { 
+                                         neighborFound = true; break;
+                                     }
+                                 }
+                             }
+                             if(neighborFound) {
+                                 d[idx] = r; d[idx+1] = g; d[idx+2] = b; d[idx+3] = 255; 
+                             }
+                        }
+                    }
+                }
+                ctx.putImageData(imgData, 0, 0);
+                showNotification(`Outline ${label} Applied`, "success");
+            }
+            else if (type === 'crt') {
+                for (let y = 0; y < h; y++) {
+                    if (y % 2 === 0) { 
+                        for (let x = 0; x < w; x++) {
+                            const i = (y * w + x) * 4;
+                            d[i] = d[i] * 0.7; d[i+1] = d[i+1] * 0.7; d[i+2] = d[i+2] * 0.7; 
+                        }
+                    }
+                }
+                ctx.putImageData(imgData, 0, 0);
+                showNotification("CRT Scanline Applied", "success");
+            }
+            else if (type === 'fxaa') {
+                const output = ctx.createImageData(w, h);
+                const od = output.data;
+                for (let y = 0; y < h; y++) {
+                    for (let x = 0; x < w; x++) {
+                        const i = (y * w + x) * 4;
+                        let r=0, g=0, b=0, a=0;
+                        let weightSum = 0;
+                        const neighbors = [{dx:0, dy:-1, w:1}, {dx:-1, dy:0, w:1}, {dx:0, dy:0, w:4}, {dx:1, dy:0, w:1}, {dx:0, dy:1, w:1}];
+                        for(let n of neighbors) {
+                            const nx = x + n.dx; const ny = y + n.dy;
+                            if(nx>=0 && nx<w && ny>=0 && ny<h) {
+                                const ni = (ny * w + nx) * 4;
+                                r += d[ni] * n.w; g += d[ni+1] * n.w; b += d[ni+2] * n.w; a += d[ni+3] * n.w;
+                                weightSum += n.w;
+                            }
+                        }
+                        od[i] = r / weightSum; od[i+1] = g / weightSum; od[i+2] = b / weightSum; od[i+3] = a / weightSum;
+                    }
+                }
+                ctx.putImageData(output, 0, 0);
+                showNotification("Smart Smoothing Applied", "success");
+            }
+            else if (type === 'smart_contrast') {
+                const contrast = 30; 
+                const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+                for(let i=0; i<d.length; i+=4) {
+                    if(d[i+3] > 10) {
+                        d[i] = factor * (d[i] - 128) + 128; d[i+1] = factor * (d[i+1] - 128) + 128; d[i+2] = factor * (d[i+2] - 128) + 128;
+                    }
+                }
+                ctx.putImageData(imgData, 0, 0);
+                showNotification("Smart Contrast Applied", "success");
+            }
+
+            // FIX: AUTO SAVE SHADER RESULT & COMPRESS
+            if(currentEditorImageIndex > -1 && !isImportedImage) {
+                const target = foundImages[currentEditorImageIndex];
+                const buffer = ctx.getImageData(0,0,w,h).data.buffer;
+                const bestBuffer = await smartCompress(buffer, w, h, target.isHidden ? target.size : null);
+                
+                if (bestBuffer) {
+                    const blob = new Blob([bestBuffer], {type:'image/png'});
+                    target.modifiedData = blob;
+                    target.blob = blob;
+                    target.url = URL.createObjectURL(blob);
+                    target.modified = true;
+                } else {
+                     showNotification("Peringatan: Hasil shader terlalu besar untuk slot ini!", "warning");
+                }
+            }
+        };
+
+        window.applyShaderToAll = async () => {
+            if (!currentActiveShader || foundImages.length === 0) return;
+            if (!confirm(`Terapkan efek '${currentActiveShader}' ke semua gambar (${foundImages.length} items)?\nGambar di editor saat ini juga akan disimpan otomatis.`)) return;
+
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            document.getElementById('loadingStatus').innerText = `Batch Processing: ${currentActiveShader}...`;
+
+            await new Promise(r => setTimeout(r, 100));
+
+            // Save current editor state first (already handled by applyShader logic, but we make sure here)
+            if(currentEditorImageIndex > -1 && !isImportedImage) {
+                foundImages[currentEditorImageIndex].isBatch = true; 
+            }
+
+            const tempCanvas = document.createElement('canvas');
+            const tCtx = tempCanvas.getContext('2d');
+
+            try {
+                let processed = 0;
+                let failed = 0;
+
+                for (let i = 0; i < foundImages.length; i++) {
+                    if (i === currentEditorImageIndex) continue; // Skip active one
+
+                    const imgData = foundImages[i];
+                    const img = new Image();
+                    await new Promise((resolve, reject) => {
+                        img.onload = resolve;
+                        img.onerror = reject;
+                        img.src = imgData.url; 
+                    });
+                    tempCanvas.width = img.width;
+                    tempCanvas.height = img.height;
+                    tCtx.clearRect(0, 0, img.width, img.height);
+                    tCtx.drawImage(img, 0, 0);
+
+                    const imageData = tCtx.getImageData(0, 0, img.width, img.height);
+                    const d = imageData.data;
+                    const type = currentActiveShader;
+
+                    // ... Shader Logic Copy (Simplified for brevity, uses same math as applyShader) ...
+                    // NOTE: Dalam implementasi penuh, sebaiknya logic shader dipisah ke fungsi murni yang menerima imageData
+                    // Di sini kita duplikasi logic (Natural, Grayscale, etc) agar tetap dalam satu file HTML
+                    
+                    if (type === 'natural') {
+                        const sat = 1.3; const con = 10; const factor = (259 * (con + 255)) / (255 * (259 - con));
+                        for(let k=0; k<d.length; k+=4) {
+                            let r = d[k], g = d[k+1], b = d[k+2];
+                            const gray = 0.299*r + 0.587*g + 0.114*b;
+                            r = gray + (r - gray) * sat; g = gray + (g - gray) * sat; b = gray + (b - gray) * sat;
+                            d[k] = factor * (r - 128) + 128; d[k+1] = factor * (g - 128) + 128; d[k+2] = factor * (b - 128) + 128;
+                        }
+                    }
+                    else if (type === 'grayscale') {
+                        for(let k=0; k<d.length; k+=4) {
+                            const gray = 0.299*d[k] + 0.587*d[k+1] + 0.114*d[k+2];
+                            d[k] = gray; d[k+1] = gray; d[k+2] = gray;
+                        }
+                    }
+                    else if (type === 'warmth') { for(let k=0; k<d.length; k+=4) { d[k] = Math.min(255, d[k] + 30); d[k+2] = Math.max(0, d[k+2] - 15); } }
+                    else if (type === 'cool') { for(let k=0; k<d.length; k+=4) { d[k] = Math.max(0, d[k] - 10); d[k+2] = Math.min(255, d[k+2] + 25); } }
+                    else if (type.startsWith('outline')) {
+                        let r=255, g=255, b=255; if (type === 'outline_black') { r=0; g=0; b=0; }
+                        const copy = new Uint8ClampedArray(d);
+                        for(let y=0; y<img.height; y++) {
+                            for(let x=0; x<img.width; x++) {
+                                const idx = (y * img.width + x) * 4;
+                                if (copy[idx+3] === 0) {
+                                    const neighbors = [[0,-1], [0,1], [-1,0], [1,0]];
+                                    for(let n of neighbors) {
+                                        const nx = x+n[0]; const ny = y+n[1];
+                                        if(nx>=0 && nx<img.width && ny>=0 && ny<img.height) {
+                                            if(copy[((ny * img.width + nx) * 4)+3] > 10) { d[idx]=r; d[idx+1]=g; d[idx+2]=b; d[idx+3]=255; break; }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    else if (type === 'crt') {
+                        for (let y = 0; y < img.height; y++) { if (y % 2 === 0) { for (let x = 0; x < img.width; x++) { const k = (y * img.width + x) * 4; d[k] *= 0.7; d[k+1] *= 0.7; d[k+2] *= 0.7; } } }
+                    }
+                    else if (type === 'smart_contrast') {
+                        const factor = (259 * (30 + 255)) / (255 * (259 - 30));
+                        for(let k=0; k<d.length; k+=4) { if(d[k+3]>10) { d[k]=factor*(d[k]-128)+128; d[k+1]=factor*(d[k+1]-128)+128; d[k+2]=factor*(d[k+2]-128)+128; } }
+                    }
+                    else if (type === 'fxaa') {
+                         // FXAA logic simplified (same as above)
+                         const od = tCtx.createImageData(img.width, img.height).data;
+                         for (let y = 0; y < img.height; y++) {
+                            for (let x = 0; x < img.width; x++) {
+                                const k = (y * img.width + x) * 4;
+                                let r=0, g=0, b=0, a=0; let weightSum = 0;
+                                const neighbors = [{dx:0, dy:-1, w:1}, {dx:-1, dy:0, w:1}, {dx:0, dy:0, w:4}, {dx:1, dy:0, w:1}, {dx:0, dy:1, w:1}];
+                                for(let n of neighbors) {
+                                    const nx = x + n.dx; const ny = y + n.dy;
+                                    if(nx>=0 && nx<img.width && ny>=0 && ny<img.height) {
+                                        const ni = (ny * img.width + nx) * 4;
+                                        r += d[ni] * n.w; g += d[ni+1] * n.w; b += d[ni+2] * n.w; a += d[ni+3] * n.w;
+                                        weightSum += n.w;
+                                    }
+                                }
+                                d[k] = r / weightSum; d[k+1] = g / weightSum; d[k+2] = b / weightSum; d[k+3] = a / weightSum;
+                            }
+                        }
+                    }
+
+                    tCtx.putImageData(imageData, 0, 0);
+                    
+                    // FIX: BATCH COMPRESSION
+                    const buffer = imageData.data.buffer;
+                    const bestBuffer = await smartCompress(buffer, img.width, img.height, imgData.isHidden ? imgData.size : null);
+
+                    if (bestBuffer) {
+                        const blob = new Blob([bestBuffer], {type:'image/png'});
+                        imgData.modifiedData = blob;
+                        imgData.blob = blob;
+                        imgData.url = URL.createObjectURL(blob);
+                        imgData.modified = true;
+                        imgData.isBatch = true;
+                        processed++;
+                    } else {
+                        failed++;
+                    }
+                }
+                
+                let msg = `Sukses: ${processed} gambar.`;
+                if(failed > 0) msg += ` Gagal: ${failed} (Limit size).`;
+                showNotification(msg, failed > 0 ? "warning" : "success");
+                renderList(); 
+            } catch (e) {
+                showNotification("Batch Error: " + e.message, "error");
+            } finally {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+            }
+        };
+    </script>
+</body>
+</html>
