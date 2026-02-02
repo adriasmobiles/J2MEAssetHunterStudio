@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>J2ME Asset Hunter V9.8 (APK Supported)</title>
+    <title>J2ME Asset Hunter Studio</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Core Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
@@ -85,6 +85,8 @@
             display: inline-block; 
             transform-origin: center center;
             will-change: transform;
+            /* Penting: Layering */
+            z-index: 10;
         }
         
         canvas { 
@@ -210,16 +212,20 @@
             pointer-events: none;
         }
 
-        /* FIX: CURSOR BRUSH STYLE */
+        /* FIX: NEW STATIC CURSOR STYLE */
+        /* Kursor ini tidak berada di dalam elemen yang di-scale, jadi bordernya selalu 1px */
         #brushCursor {
             position: absolute;
             pointer-events: none;
-            border-radius: 0 !important; 
-            border: 1px solid rgba(255, 255, 255, 0.8);
-            box-shadow: 0 0 0 1px rgba(0,0,0,0.5); 
-            z-index: 40;
-            transform: translate(-50%, -50%);
+            /* Thin Outline: 1px solid white with black shadow for contrast */
+            border: 1px solid rgba(255, 255, 255, 0.9);
+            box-shadow: 0 0 2px 0px rgba(0,0,0,0.8);
+            box-sizing: border-box; /* Ukuran termasuk border */
+            z-index: 50; /* Di atas segalanya */
             display: none; 
+            will-change: transform, width, height;
+            /* Menggunakan transform translate3d untuk performa terbaik */
+            top: 0; left: 0; 
         }
     </style>
 </head>
@@ -229,7 +235,7 @@
     <header class="h-14 shrink-0 flex items-center justify-between px-4 bg-glass backdrop-blur-md border-b border-glassBorder z-[60] relative shadow-lg">
         <div id="header-logo-area" class="flex items-center gap-2 transition-opacity duration-300">
             <div class="w-8 h-8 rounded-lg grad-amber flex items-center justify-center text-white font-bold text-xs shadow-lg shadow-amber-500/20"><i class="fa-solid fa-crosshairs"></i></div>
-            <h1 class="font-bold text-base tracking-tight text-slate-100">J2ME <span class="text-amber-500">Hunter</span> <span class="text-[9px] text-slate-500 bg-slate-800 px-1 rounded ml-1">V9.8</span></h1>
+            <h1 class="font-bold text-base tracking-tight text-slate-100">J2ME </span> <span class="text-amber-500">Asset Hunter</span> <span class="text-xs white-500">Studio</span> <span class="text-[9px] text-slate-500 bg-slate-800 px-1 rounded ml-1">V9.6.2.4</span></h1>
         </div>
 
         <div id="header-editor-area" class="hidden absolute inset-0 flex items-center justify-between px-3 w-full bg-slate-900/95 backdrop-blur-md">
@@ -290,7 +296,7 @@
             </div>
              
              <button onclick="downloadAssetsZip()" id="fabDownload" 
-                class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-40 px-5 py-2.5 grad-amber rounded-full shadow-lg shadow-amber-900/40 text-white font-bold text-[10px] flex items-center gap-2 active:scale-95 transition-all duration-300 border border-white/10 whitespace-nowrap">
+                class="hidden fixed bottom-24 left-1/2 -translate-x-1/2 z-40 px-5 py-2.5 grad-amber rounded-full shadow-lg shadow-amber-900/40 text-white font-bold text-[10px] flex items-center gap-2 active:scale-95 transition-all duration-300 border border-white/10 whitespace-nowrap">
                 <i class="fa-solid fa-gamepad text-sm"></i>
                 <span>REPACK JAR</span>
             </button>
@@ -300,14 +306,19 @@
         <!-- EDITOR VIEW -->
         <div id="view-editor" class="absolute inset-0 bg-slate-950 z-20 translate-x-full view-transition flex flex-col h-full w-full">
             
+            <!-- FIX: Kursor sekarang ada di Viewport (layer statis), bukan di Wrapper (layer zoom) -->
             <div id="canvasViewport" class="flex-1 relative overflow-hidden touch-none flex items-center justify-center bg-slate-950 w-full transition-all duration-300" style="height: 100%;">
+                
                 <div id="canvasWrapper" class="relative shadow-2xl origin-center will-change-transform rounded-sm ring-1 ring-white/5">
                     <canvas id="editorCanvas" class="block"></canvas>
-                    <div id="brushCursor" class="bg-white/20 hidden"></div>
                     <div id="selectionBox" class="absolute border border-dashed border-red-400 bg-red-500/10 hidden z-20 pointer-events-none box-border"></div>
                     <div id="guideX" class="guide-line w-full h-[1px] top-1/2 left-0 transform -translate-y-1/2"></div>
                     <div id="guideY" class="guide-line h-full w-[1px] left-1/2 top-0 transform -translate-x-1/2"></div>
                 </div>
+
+                <!-- NEW CURSOR LOCATION: Outside scaled element -->
+                <div id="brushCursor"></div>
+
                 <div id="textOverlay" class="hidden flex items-center justify-center z-50">
                     <div id="dragHandle" class="drag-handle shadow-lg"><i class="fa-solid fa-arrows-up-down-left-right"></i></div>
                     <div id="handle-br" class="resize-handle bottom-[-6px] right-[-6px]"></div>
@@ -343,6 +354,9 @@
             </div>
 
             <div id="quickZoomContainer" class="absolute bottom-16 left-1/2 -translate-x-1/2 z-40 bg-slate-900/90 backdrop-blur-md border border-white/10 p-1 rounded-full shadow-xl flex items-center gap-1">
+                <!-- NEW: IMAGE COUNTER COLOR MATCHED -->
+                <div id="imageCounter" class="absolute -top-7 left-1/2 -translate-x-1/2 text-[10px] text-slate-300 font-mono font-bold tracking-wider pointer-events-none bg-slate-800/90 px-3 py-1 rounded-md border border-slate-600/50 whitespace-nowrap shadow-sm">0 / 0</div>
+
                 <button onclick="navigateEditor(-1)" class="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center active:scale-90 transition hover:bg-slate-700">
                     <i class="fa-solid fa-chevron-left text-[10px]"></i>
                 </button>
@@ -385,7 +399,7 @@
 
     <!-- BOTTOM TOOLS SHEET -->
     <div id="toolsSheet" class="fixed inset-x-0 bottom-0 z-[60] flex flex-col justify-end transform translate-y-full bottom-sheet pointer-events-none">
-        <div id="toolsContent" class="bg-slate-900 rounded-t-2xl p-4 w-full pointer-events-auto border-t border-slate-800 shadow-[0_-5px_30px_rgba(0,0,0,0.6)] h-auto relative">
+        <div id="toolsContent" class="bg-slate-900 rounded-t-2xl p-4 w-full pointer-events-auto border-t border-slate-800 shadow-[0_ -5px_30px_rgba(0,0,0,0.6)] h-auto relative">
             <div onclick="toggleTools(true)" class="absolute top-0 left-0 right-0 h-8 flex items-center justify-center cursor-pointer active:bg-slate-800/50 rounded-t-2xl -mt-2">
                 <div class="w-12 h-1 bg-slate-700 rounded-full"></div>
             </div>
@@ -659,6 +673,7 @@
         const quickZoomContainer = document.getElementById('quickZoomContainer');
         const btnUndoContainer = document.getElementById('btnUndoContainer');
         const btnApplyAll = document.getElementById('btnApplyAll');
+        const imageCounter = document.getElementById('imageCounter');
         
         const fabDownload = document.getElementById('fabDownload');
         const quickScrollControls = document.getElementById('quickScrollControls');
@@ -719,7 +734,20 @@
                 currentActiveShader = null;
             }
         }
-        window.closeEditor = () => switchView('extractor');
+        
+        // FIX: CLEANUP DRAFTS WHEN CLOSING EDITOR
+        window.closeEditor = () => {
+            if (foundImages.length > 0) {
+                foundImages.forEach(img => {
+                    // Wipe temporary editor state unless it was committed via 'Inject'
+                    if (img.draftData) delete img.draftData;
+                    if (img.draftDims) delete img.draftDims;
+                    if (img.draftText) delete img.draftText;
+                    if (img.draftUndoStack) delete img.draftUndoStack;
+                });
+            }
+            switchView('extractor');
+        };
         
         function updateUndoPosition() {
              const btnUndo = document.getElementById('btnUndoContainer');
@@ -1033,7 +1061,7 @@
                 if(!safeName) safeName = "J2ME_Modded";
                 
                 // APK FIX: Use saveFileAPK instead of simple link click
-                saveFileAPK(content, `${safeName}_Modded.jar`);
+                saveFileAPK(content, `${safeName}.jar`);
                 
                 showNotification("Game Siap Main! (.jar)", "success");
             } catch(e) { showNotification("Gagal repack: " + e.message, "error"); } finally { document.getElementById('loadingOverlay').classList.add('hidden'); }
@@ -1044,11 +1072,15 @@
         function getLocalCoords(clientX, clientY) {
             const rect = editorCanvas.getBoundingClientRect();
             let offsetY = 0;
-            // FIX: Precision Mode Logic applies to both Brush and Eraser now
             if (isPrecisionMode) {
-                offsetY = 60 * (1/scale); 
+                // Precision offset in screen pixels
+                offsetY = 60; 
             }
-            return { x: (clientX - rect.left) / scale, y: ((clientY - rect.top) / scale) - offsetY };
+            // Mengembalikan koordinat relatif terhadap canvas (unscaled)
+            return { 
+                x: (clientX - rect.left) / scale, 
+                y: ((clientY - rect.top) - offsetY) / scale 
+            };
         }
 
         window.toggleMode = (mode) => {
@@ -1172,13 +1204,26 @@
         }
 
         function handlePointerMove(e) {
-            // FIX: STRICT GHOST CURSOR REMOVAL
-            if (currentTool === 'none') {
-                brushCursor.style.display = 'none';
-                // Lanjutkan jika sedang panning
-                if (!isPanning) return;
+            // Logic Panning & Zooming
+            if (isPanning && currentTool === 'none') {
+                 // ... existing panning logic ...
+                 e.preventDefault();
+                 const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                 const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                 pannedX = clientX - startPanX;
+                 pannedY = clientY - startPanY;
+                 updateTransform();
+                 // Panning tidak update kursor karena mode 'none'
+                 return;
             }
 
+            // Hide kursor jika tool tidak aktif
+            if (currentTool === 'none') {
+                brushCursor.style.display = 'none';
+                return;
+            }
+            
+            // Logic Pointer Move untuk Kursor
             if(isTouchZooming && e.touches && e.touches.length === 2) {
                 e.preventDefault();
                 const dist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
@@ -1188,49 +1233,74 @@
                 lastTouchDist = dist;
                 return;
             }
+
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-            if (isPanning && currentTool === 'none') {
+            // 1. Dapatkan koordinat lokal (unscaled pixel)
+            const pos = getLocalCoords(clientX, clientY);
+
+            // 2. Tampilkan Kursor Kustom
+            // Kita hitung posisi grid pixel yang sedang ditunjuk
+            // Math.floor(pos.x) adalah index pixel di kanvas (misal: 10)
+            
+            const brushSize = parseInt(currentTool === 'brush' ? 
+                document.getElementById('brushSizeSlider').value : 
+                document.getElementById('eraserSizeSlider').value);
+
+            // Calculate exact screen coordinates
+            // Posisi kursor di layar = (IndexPixel * Scale) + Pan + OffsetWrapper
+            // Tapi karena kursor ada di dalam #canvasViewport yang statis, kita perlu hitung relatif terhadap viewport
+            // Posisi relative terhadap wrapper (unscaled)
+            
+            const rectViewport = canvasViewport.getBoundingClientRect();
+            // Koordinat mouse relatif ke viewport
+            const mouseXInViewport = clientX - rectViewport.left;
+            const mouseYInViewport = clientY - rectViewport.top;
+            
+            // Trik Anti-Jitter:
+            // Alih-alih mengikuti mouse persis (yang floating point),
+            // Kita paksa kursor untuk snap ke grid pixel kanvas yang sudah di-scale.
+            
+            // 1. Ambil koordinat pixel kanvas (integer)
+            const canvasPixelX = Math.floor(pos.x);
+            const canvasPixelY = Math.floor(pos.y);
+            
+            // 2. Hitung koordinat layar dari pixel tersebut
+            // Wrapper center + translate + (pixel * scale)
+            // Namun karena kita pakai CSS transform origin center, rumusnya agak kompleks jika manual.
+            // Cara termudah: Dapatkan bounding rect dari canvas aktual saat ini.
+            const rectCanvas = editorCanvas.getBoundingClientRect();
+            
+            // Posisi pixel di layar relatif terhadap viewport
+            // (PixelIndex * Scale) + CanvasLeftOffset relative to Viewport
+            const relativeCanvasLeft = rectCanvas.left - rectViewport.left;
+            const relativeCanvasTop = rectCanvas.top - rectViewport.top;
+            
+            // Hitung ukuran brush di layar
+            // Jika brush size 1, dan scale 5, maka di layar jadi 5px
+            const visualBrushSize = brushSize * scale;
+            
+            // Offset agar kursor ada di tengah brush
+            const halfBrush = Math.floor(brushSize / 2);
+            
+            // Posisi Top-Left kursor di Viewport
+            const cursorLeft = relativeCanvasLeft + ((canvasPixelX - halfBrush) * scale);
+            const cursorTop = relativeCanvasTop + ((canvasPixelY - halfBrush) * scale);
+            
+            brushCursor.style.width = visualBrushSize + 'px';
+            brushCursor.style.height = visualBrushSize + 'px';
+            
+            // Pindahkan kursor menggunakan translate3d untuk performa
+            brushCursor.style.transform = `translate3d(${cursorLeft}px, ${cursorTop}px, 0)`;
+            brushCursor.style.display = 'block';
+            
+            // Gambar (Drawing Logic)
+            if (isDrawing && !eyedropperActive) {
                 e.preventDefault();
-                pannedX = clientX - startPanX;
-                pannedY = clientY - startPanY;
-                updateTransform(); 
-            } else if (isDrawing || (currentTool !== 'none' && currentTool !== 'idle' && !e.touches) || (isPrecisionMode && currentTool !== 'none')) { 
-                
-                const pos = getLocalCoords(clientX, clientY);
-                
-                // Show Cursor for both brush and eraser
-                if (currentTool === 'brush' || currentTool === 'eraser') {
-                    const size = currentTool === 'brush' ? 
-                        document.getElementById('brushSizeSlider').value : 
-                        document.getElementById('eraserSizeSlider').value;
-                        
-                    brushCursor.style.width = size + 'px'; 
-                    brushCursor.style.height = size + 'px';
-                    
-                    if (currentTool === 'eraser') {
-                         brushCursor.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
-                         brushCursor.style.borderColor = 'red';
-                    } else {
-                         brushCursor.style.backgroundColor = document.getElementById('brushColorPicker').value;
-                         brushCursor.style.borderColor = 'white';
-                    }
-                    
-                    brushCursor.style.left = pos.x + 'px';
-                    brushCursor.style.top = pos.y + 'px';
-                    brushCursor.style.display = 'block';
-                }
-                
-                if (isDrawing && !eyedropperActive) {
-                    e.preventDefault();
-                    if (currentTool === 'brush' || currentTool === 'eraser') {
-                        // FIX: Interpolate line from last position to current
-                        paintLine(lastDrawX, lastDrawY, pos.x, pos.y, currentTool === 'eraser');
-                        lastDrawX = pos.x;
-                        lastDrawY = pos.y;
-                    }
-                }
+                paintLine(lastDrawX, lastDrawY, pos.x, pos.y, currentTool === 'eraser');
+                lastDrawX = pos.x;
+                lastDrawY = pos.y;
             }
         }
 
@@ -1286,7 +1356,7 @@
             currentTool = 'none';
             isPanning = false;
             selectionActive = false;
-            undoStack = [];
+            undoStack = []; // Reset stack initially, will be overridden if draft exists
             isTextVirtual = false; 
             isPrecisionMode = false;
             disableEyedropper();
@@ -1321,19 +1391,15 @@
         document.getElementById('brushColorPicker').addEventListener('input', updateBrushCursor);
 
         function updateBrushCursor() {
-            let size = 1;
-            if (currentTool === 'brush') size = document.getElementById('brushSizeSlider').value;
-            if (currentTool === 'eraser') size = document.getElementById('eraserSizeSlider').value;
-            
-            brushCursor.style.width = size + 'px'; brushCursor.style.height = size + 'px';
-            
+            // Kita tidak mengubah ukuran pixel di sini lagi karena sudah ditangani di handlePointerMove
+            // Hanya update warna jika perlu
             if (currentTool === 'eraser') {
-                 brushCursor.style.backgroundColor = 'rgba(255,255,255,0.5)';
-                 brushCursor.style.borderColor = 'red';
+                // Style sudah diset di CSS
             } else {
-                 brushCursor.style.backgroundColor = document.getElementById('brushColorPicker').value;
-                 brushCursor.style.borderColor = 'white';
+                // Style sudah diset di CSS
             }
+            // Trigger move event fiktif untuk update ukuran visual
+            // (Opsional, tapi bagus untuk UX)
         }
 
         // FIX: Bresenham's Line Algorithm for Continuous Drawing
@@ -1821,6 +1887,8 @@
                             showNotification("Injeksi & Kompresi Berhasil", "success");
                             const blob = new Blob([bestBuffer], {type:'image/png'});
                             target.modifiedData = blob; target.blob = blob; target.url = URL.createObjectURL(blob); target.modified = true;
+                            // Clear draft if injection is successful
+                            if(target.draftData) delete target.draftData;
                             renderList();
                         } else { 
                             if(target.isHidden) showNotification(`Gagal Total: Tidak bisa dikompresi di bawah ${target.size} B`, "error");
@@ -1835,10 +1903,69 @@
 
         window.loadToEditor = (index) => {
             fullEditorReset(); 
-            const imgData = foundImages[index]; currentEditorImageIndex = index;
+            const imgData = foundImages[index]; 
+            currentEditorImageIndex = index;
             isImportedImage = false; 
             updateFloatingControls();
             document.getElementById('enhancementPanel').classList.remove('hidden');
+            
+            // FIX: UPDATE IMAGE COUNTER
+            imageCounter.innerText = `${index + 1} / ${foundImages.length}`;
+            
+            // --- FIX: CHECK FOR DRAFT STATE ---
+            if(imgData.draftData) {
+                editorCanvas.width = imgData.draftDims.w; 
+                editorCanvas.height = imgData.draftDims.h;
+                ctx.putImageData(imgData.draftData, 0, 0);
+                
+                // RESTORE UNDO STACK
+                if(imgData.draftUndoStack && imgData.draftUndoStack.length > 0) {
+                     undoStack = [...imgData.draftUndoStack];
+                     document.getElementById('btnUndo').disabled = false;
+                }
+                
+                // Load base image for shader reference only
+                const img = new Image();
+                img.onload = () => {
+                    originalImportedImage = document.createElement('canvas');
+                    originalImportedImage.width = img.width;
+                    originalImportedImage.height = img.height;
+                    originalImportedImage.getContext('2d').drawImage(img, 0, 0);
+                    
+                    // Restore Text Layer Draft if exists
+                    if(imgData.draftText) {
+                        textState = imgData.draftText.state;
+                        textInner.innerText = imgData.draftText.content;
+                        if(imgData.draftText.colors) {
+                             document.getElementById('textColorPicker').value = imgData.draftText.colors.text;
+                             document.getElementById('outlineColorPicker').value = imgData.draftText.colors.outline;
+                             document.getElementById('outlineSizeSlider').value = imgData.draftText.colors.outlineSize;
+                             document.getElementById('outlineCheck').checked = imgData.draftText.colors.hasOutline;
+                             updateTextStyle();
+                        }
+                        toggleTextVisibility(true);
+                        document.getElementById('textVisibleToggle').checked = true;
+                        openSubMenu('text');
+                        syncTextOverlayVisuals();
+                    }
+                };
+                img.src = imgData.url;
+
+                headerFileName.innerText = imgData.name + ` (${imgData.draftDims.w}x${imgData.draftDims.h})*`;
+                document.getElementById('resizeW').value = imgData.draftDims.w; 
+                document.getElementById('resizeH').value = imgData.draftDims.h;
+                switchView('editor'); 
+                
+                // Calc Zoom
+                const viewport = document.getElementById('canvasViewport');
+                let fitScale = Math.min((viewport.clientWidth - 40) / imgData.draftDims.w, (viewport.clientHeight - 80) / imgData.draftDims.h);
+                if (fitScale > 1) fitScale = 1;
+                pannedX = 0; pannedY = 0;
+                applyZoom(fitScale);
+                return;
+            }
+
+            // Normal Load
             const img = new Image();
             img.onload = () => {
                 editorCanvas.width = img.width; editorCanvas.height = img.height;
@@ -1892,6 +2019,9 @@
                     showNotification("Disimpan ke Daftar (Siap Ekspor)", "success");
                     const blob = new Blob([bestBuffer], {type:'image/png'});
                     target.modifiedData = blob; target.blob = blob; target.url = URL.createObjectURL(blob); target.modified = true;
+                    // Clear draft on successful save
+                    if(target.draftData) delete target.draftData;
+                    if(target.draftUndoStack) delete target.draftUndoStack;
                     renderList(); 
                     showNotification("Perubahan disimpan! Lanjut edit...", "success");
                 } else {
@@ -1906,6 +2036,7 @@
             img.blob = blob; img.url = URL.createObjectURL(blob); img.modified = false;
             img.textLayerData = null; 
             img.isBatch = false; 
+            if(img.draftData) delete img.draftData; // Clear draft
             renderList();
             showNotification("Gambar di-reset ke asli", "info");
         }
@@ -2136,13 +2267,38 @@
                 showNotification("Navigasi tidak tersedia (Import/Kosong)", "error");
                 return;
             }
+            
+            // --- FIX: SAVE CURRENT STATE TO DRAFT BEFORE MOVING ---
+            if(currentEditorImageIndex > -1) {
+                const img = foundImages[currentEditorImageIndex];
+                // Save raster data
+                img.draftData = ctx.getImageData(0,0,editorCanvas.width, editorCanvas.height);
+                img.draftDims = {w: editorCanvas.width, h: editorCanvas.height};
+                // Save Undo Stack
+                img.draftUndoStack = [...undoStack]; // Shallow copy array is fine as state objects are distinct
+                
+                // Save text layer state if active
+                if(textState.visible || isTextVirtual) {
+                    img.draftText = {
+                        state: JSON.parse(JSON.stringify(textState)),
+                        content: textInner.innerText,
+                        colors: {
+                             text: document.getElementById('textColorPicker').value,
+                             outline: document.getElementById('outlineColorPicker').value,
+                             outlineSize: document.getElementById('outlineSizeSlider').value,
+                             hasOutline: document.getElementById('outlineCheck').checked
+                        }
+                    };
+                }
+            }
+
             let nextIndex = currentEditorImageIndex + direction;
             
             if (nextIndex >= foundImages.length) nextIndex = 0;
             if (nextIndex < 0) nextIndex = foundImages.length - 1;
             
             loadToEditor(nextIndex);
-            showNotification(`Gambar ${nextIndex + 1} dari ${foundImages.length}`, "info");
+            // Don't spam notification, UI feedback from loadToEditor is enough
         };
 
         window.applyShader = async (type) => {
