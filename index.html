@@ -241,7 +241,7 @@
     <header class="h-14 shrink-0 flex items-center justify-between px-4 bg-glass backdrop-blur-md border-b border-glassBorder z-[60] relative shadow-lg">
         <div id="header-logo-area" class="flex items-center gap-2 transition-opacity duration-300">
             <div class="w-8 h-8 rounded-lg grad-amber flex items-center justify-center text-white font-bold text-xs shadow-lg shadow-amber-500/20"><i class="fa-solid fa-crosshairs"></i></div>
-            <h1 class="font-bold text-base tracking-tight text-slate-100">J2ME </span> <span class="text-amber-500">Asset Hunter</span> <span class="text-xs white-500">Studio</span> <span class="text-[9px] text-slate-500 bg-slate-800 px-1 rounded ml-1">New Features</span></h1>
+            <h1 class="font-bold text-base tracking-tight text-slate-100">J2ME </span> <span class="text-amber-500">Asset Hunter</span> <span class="text-xs white-500">Studio</span> <span class="text-[9px] text-slate-500 bg-slate-800 px-1 rounded ml-1">New</span></h1>
         </div>
 
         <div id="header-editor-area" class="hidden absolute inset-0 flex items-center justify-between px-3 w-full bg-slate-900/95 backdrop-blur-md">
@@ -277,7 +277,7 @@
                     <i class="fa-solid fa-box-open text-amber-500 text-3xl drop-shadow-lg"></i>
                 </div>
                 <h3 class="font-bold text-slate-200">Buka File Game (Jar/Zip/Apk)</h3>
-                <p id="fileNameDisplay" class="text-xs text-slate-400 mt-1 text-center px-4">Deep Scan (Chunk Parser V2)</p>
+                <p id="fileNameDisplay" class="text-xs text-slate-400 mt-1 text-center px-4">Fitur Unduhan Baru</p>
             </div>
 
             <div id="statsBar" class="hidden flex justify-between items-center mb-3 px-1">
@@ -642,11 +642,11 @@
                 <i class="fa-solid fa-cloud-arrow-down text-blue-400"></i> Opsi Unduhan
             </h3>
             <p class="text-[11px] text-slate-400 leading-relaxed">
-                Jika aplikasi (APK) menolak unduhan lokal atau terjadi Force Close, gunakan fitur <b>Buat Link HTTPS</b> agar file diunduh langsung melalui server.
+                Pilih metode unduhan. Jika berada di dalam APK, cobalah <b>Bagikan (Android)</b> terlebih dahulu. Jika gagal, gunakan <b>Buat Link HTTPS</b>.
             </p>
 
-            <button id="btnDlLocal" class="w-full py-3 grad-emerald rounded-xl text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg active:scale-95 transition">
-                <i class="fa-solid fa-hard-drive"></i> Unduh Lokal (Browser PC)
+            <button id="btnDlShare" class="w-full py-3 grad-emerald rounded-xl text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg active:scale-95 transition">
+                <i class="fa-solid fa-share-nodes"></i> Bagikan / Simpan (Android)
             </button>
 
             <button id="btnDlCloud" class="w-full py-3 grad-blue rounded-xl text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg active:scale-95 transition">
@@ -660,11 +660,11 @@
                 <span id="cloudStatus" class="text-[10px] text-slate-400 text-center font-mono">Mengunggah ke server...</span>
             </div>
 
-            <a id="btnFinalCloud" href="#" target="_blank" class="hidden w-full py-3 grad-amber rounded-xl text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg active:scale-95 transition">
+            <button id="btnFinalCloud" class="hidden w-full py-3 grad-amber rounded-xl text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg active:scale-95 transition">
                 <i class="fa-solid fa-download"></i> UNDUH FILE HTTPS
-            </a>
+            </button>
 
-            <button onclick="document.getElementById('downloadModal').classList.add('hidden')" class="w-full py-2 mt-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition">Batal</button>
+            <button onclick="document.getElementById('downloadModal').classList.add('hidden')" class="w-full py-2 mt-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition">Batal / Tutup</button>
         </div>
     </div>
 
@@ -1150,38 +1150,41 @@
             // Reset UI Modal
             document.getElementById('cloudProgress').classList.add('hidden');
             document.getElementById('btnFinalCloud').classList.add('hidden');
-            document.getElementById('btnDlLocal').classList.remove('hidden');
+            document.getElementById('btnDlShare').classList.remove('hidden');
             document.getElementById('btnDlCloud').classList.remove('hidden');
             document.getElementById('cloudBar').classList.remove('bg-red-500');
             document.getElementById('cloudBar').classList.add('bg-blue-500');
             document.getElementById('cloudBar').style.width = "0%";
 
-            // OPSI 1: UNDUHAN LOKAL (Standar Browser)
-            document.getElementById('btnDlLocal').onclick = () => {
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = fileName;
-                document.body.appendChild(a);
-                a.click();
-                setTimeout(() => { 
-                    document.body.removeChild(a); 
-                    URL.revokeObjectURL(url); 
-                }, 100);
-                modal.classList.add('hidden');
-                showNotification("Unduhan lokal dimulai...", "success");
+            // OPSI 1: ANDROID SHARE / BROWSER LOKAL
+            document.getElementById('btnDlShare').onclick = async () => {
+                if (navigator.canShare && navigator.canShare({ files: [new File([blob], fileName, { type: blob.type })] })) {
+                    try {
+                        const file = new File([blob], fileName, { type: blob.type || 'application/java-archive' });
+                        await navigator.share({ title: 'Simpan J2ME Mod', files: [file] });
+                        modal.classList.add('hidden');
+                        return;
+                    } catch (err) { console.log("Share batal", err); }
+                } else {
+                    // Fallback PC / Web Normal
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url; a.download = fileName;
+                    document.body.appendChild(a); a.click();
+                    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+                    modal.classList.add('hidden');
+                }
             };
 
-            // OPSI 2: UNDUHAN HTTPS (Bypass Website 2 APK)
+            // OPSI 2: UNDUHAN HTTPS (Bypass Website 2 APK Tanpa Crash)
             document.getElementById('btnDlCloud').onclick = async () => {
-                document.getElementById('btnDlLocal').classList.add('hidden');
+                document.getElementById('btnDlShare').classList.add('hidden');
                 document.getElementById('btnDlCloud').classList.add('hidden');
                 document.getElementById('cloudProgress').classList.remove('hidden');
-                document.getElementById('cloudStatus').innerText = "Mengamankan file di server sementara...";
+                document.getElementById('cloudStatus').innerText = "Membuat Link HTTPS rahasia...";
                 document.getElementById('cloudBar').style.width = "40%";
 
                 try {
-                    // Gunakan tmpfiles.org API (Mendukung file hingga 50MB, kadaluarsa 60 menit)
                     const formData = new FormData();
                     formData.append('file', new File([blob], fileName, {type: blob.type}));
 
@@ -1196,18 +1199,27 @@
                         document.getElementById('cloudBar').style.width = "100%";
                         document.getElementById('cloudStatus').innerText = "Link HTTPS berhasil dibuat!";
                         
-                        // Konversi link preview menjadi link Direct Download
+                        // Ubah link menjadi Direct Download
                         const directLink = result.data.url.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
 
                         const finalBtn = document.getElementById('btnFinalCloud');
-                        finalBtn.href = directLink;
-                        finalBtn.download = fileName;
                         finalBtn.classList.remove('hidden');
+                        
+                        // FIX: Eksekusi Download Aman untuk APK (Tanpa membuka tab baru)
+                        finalBtn.onclick = () => {
+                            const a = document.createElement('a');
+                            a.href = directLink;
+                            a.download = fileName; // Memaksa browser/WebView memulai proses unduh
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            modal.classList.add('hidden');
+                        };
                     } else {
-                        throw new Error("Respon server ditolak");
+                        throw new Error("Server menolak");
                     }
                 } catch (err) {
-                    document.getElementById('cloudStatus').innerText = "Gagal: Pastikan internet aktif.";
+                    document.getElementById('cloudStatus').innerText = "Gagal: Pastikan internet menyala.";
                     document.getElementById('cloudBar').classList.replace('bg-blue-500', 'bg-red-500');
                     document.getElementById('cloudBar').style.width = "100%";
                 }
