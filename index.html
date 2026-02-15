@@ -241,7 +241,7 @@
     <header class="h-14 shrink-0 flex items-center justify-between px-4 bg-glass backdrop-blur-md border-b border-glassBorder z-[60] relative shadow-lg">
         <div id="header-logo-area" class="flex items-center gap-2 transition-opacity duration-300">
             <div class="w-8 h-8 rounded-lg grad-amber flex items-center justify-center text-white font-bold text-xs shadow-lg shadow-amber-500/20"><i class="fa-solid fa-crosshairs"></i></div>
-            <h1 class="font-bold text-base tracking-tight text-slate-100">J2ME </span> <span class="text-amber-500">Asset Hunter</span> <span class="text-xs white-500">Studio</span> <span class="text-[9px] text-slate-500 bg-slate-800 px-1 rounded ml-1">New</span></h1>
+            <h1 class="font-bold text-base tracking-tight text-slate-100">J2ME </span> <span class="text-amber-500">Asset Hunter</span> <span class="text-xs white-500">Studio</span> <span class="text-[9px] text-slate-500 bg-slate-800 px-1 rounded ml-1">By AdriasMobiles</span></h1>
         </div>
 
         <div id="header-editor-area" class="hidden absolute inset-0 flex items-center justify-between px-3 w-full bg-slate-900/95 backdrop-blur-md">
@@ -276,8 +276,8 @@
                 <div class="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mb-4 shadow-inner group-active:scale-95 transition">
                     <i class="fa-solid fa-box-open text-amber-500 text-3xl drop-shadow-lg"></i>
                 </div>
-                <h3 class="font-bold text-slate-200">Buka File Game (Jar/Zip/Apk)</h3>
-                <p id="fileNameDisplay" class="text-xs text-slate-400 mt-1 text-center px-4">Fitur Unduhan Baru V2</p>
+                <h3 class="font-bold text-slate-200">Buka File Game (Jar/Zip/Jpg&Png)</h3>
+                <p id="fileNameDisplay" class="text-xs text-slate-400 mt-1 text-center px-4">Perbaikan Bug Editor</p>
             </div>
 
             <div id="statsBar" class="hidden flex justify-between items-center mb-3 px-1">
@@ -657,6 +657,19 @@
             <button onclick="document.getElementById('downloadModal').classList.add('hidden')" class="w-full py-2 mt-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition">Batal / Tutup</button>
         </div>
     </div>
+	
+	<div id="customConfirmModal" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 transition-opacity">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm p-5 flex flex-col gap-4 shadow-2xl transform transition-transform scale-100">
+            <h3 class="font-bold text-slate-200 text-lg flex items-center gap-2">
+                <i class="fa-solid fa-circle-question text-amber-500"></i> Konfirmasi
+            </h3>
+            <p id="confirmMessage" class="text-[12px] text-slate-400 leading-relaxed font-medium"></p>
+            <div class="flex gap-3 mt-2">
+                <button id="btnConfirmCancel" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 rounded-xl text-xs font-bold transition active:scale-95">Batal</button>
+                <button id="btnConfirmOk" class="flex-1 py-2.5 grad-emerald rounded-xl text-white font-bold text-xs shadow-lg active:scale-95 transition border border-emerald-400/50">Ya, Lanjutkan</button>
+            </div>
+        </div>
+    </div>
 
     <div id="loadingOverlay" class="hidden fixed inset-0 bg-black/90 z-[80] flex flex-col items-center justify-center backdrop-blur-md">
         <div class="loader mb-4"></div>
@@ -758,32 +771,44 @@
             }).join('');
         };
 
-        // Fungsi Reset Instan (Perbaikan Memori Nyangkut)
+        // FUNGSI CUSTOM CONFIRM
+        window.customConfirm = (msg, onConfirm) => {
+            const modal = document.getElementById('customConfirmModal');
+            document.getElementById('confirmMessage').innerText = msg;
+            modal.classList.remove('hidden');
+
+            document.getElementById('btnConfirmOk').onclick = () => {
+                modal.classList.add('hidden');
+                onConfirm();
+            };
+            document.getElementById('btnConfirmCancel').onclick = () => {
+                modal.classList.add('hidden');
+            };
+        };
+
+        // FUNGSI RESET EDITOR (Fix Memori Tersangkut)
         window.resetEditor = () => {
             if (!originalImportedImage) return;
 
-            // Bersihkan draf memori yang tersimpan agar efek tidak nyangkut!
             if (currentEditorImageIndex > -1) {
                 const target = foundImages[currentEditorImageIndex];
                 if (target.draftData) delete target.draftData;
                 if (target.draftUndoStack) delete target.draftUndoStack;
                 if (target.draftText) delete target.draftText;
                 if (target.draftDims) delete target.draftDims;
+                if (target.draftBadges) delete target.draftBadges; // HAPUS KAPSUL DRAF
             }
 
             const resetCanvasUI = (img) => {
-                editorCanvas.width = img.width;
-                editorCanvas.height = img.height;
+                editorCanvas.width = img.width; editorCanvas.height = img.height;
                 document.getElementById('resizeW').value = img.width;
                 document.getElementById('resizeH').value = img.height;
                 
                 ctx.imageSmoothingEnabled = false; 
-                ctx.clearRect(0, 0, img.width, img.height);
-                ctx.drawImage(img, 0, 0);
+                ctx.clearRect(0, 0, img.width, img.height); ctx.drawImage(img, 0, 0);
                 
                 originalImportedImage = document.createElement('canvas');
-                originalImportedImage.width = img.width; 
-                originalImportedImage.height = img.height;
+                originalImportedImage.width = img.width; originalImportedImage.height = img.height;
                 originalImportedImage.getContext('2d').drawImage(img, 0, 0);
                 
                 undoStack = [];
@@ -795,19 +820,146 @@
                 currentActiveShader = null;
                 btnApplyAll.classList.add('hidden');
                 
-                showNotification("Gambar di-reset bersih ke kondisi awal!", "success");
+                showNotification("Gambar di-reset bersih!", "success");
             };
 
             if (currentEditorImageIndex > -1) {
-                // Muat ulang gambar murni dari URL sumber (mengabaikan kanvas)
                 const img = new Image();
                 img.onload = () => resetCanvasUI(img);
                 img.src = foundImages[currentEditorImageIndex].url;
             } else {
-                // Jika ini adalah gambar yang diimpor manual
                 resetCanvasUI(originalImportedImage);
             }
         };
+
+        // FUNGSI NAVIGASI (Menyimpan Kapsul ke Memori Masing-masing Gambar)
+        window.navigateEditor = (direction) => {
+            if (foundImages.length === 0 || isImportedImage) {
+                showNotification("Navigasi tidak tersedia (Import/Kosong)", "error"); return;
+            }
+            
+            if(currentEditorImageIndex > -1) {
+                const img = foundImages[currentEditorImageIndex];
+                img.draftData = ctx.getImageData(0,0,editorCanvas.width, editorCanvas.height);
+                img.draftDims = {w: editorCanvas.width, h: editorCanvas.height};
+                img.draftUndoStack = [...undoStack]; 
+                img.draftBadges = [...appliedShadersList]; // SIMPAN KAPSUL LOKAL
+                
+                if(textState.visible || isTextVirtual) {
+                    img.draftText = {
+                        state: JSON.parse(JSON.stringify(textState)), content: textInner.innerText,
+                        colors: {
+                             text: document.getElementById('textColorPicker').value, outline: document.getElementById('outlineColorPicker').value,
+                             outlineSize: document.getElementById('outlineSizeSlider').value, hasOutline: document.getElementById('outlineCheck').checked
+                        }
+                    };
+                }
+            }
+
+            const isMenuOpen = !toolsSheet.classList.contains('translate-y-full');
+            let activeTab = 'file'; 
+            if(document.getElementById('menu-brush').classList.contains('menu-btn-active')) activeTab = 'brush';
+            if(document.getElementById('menu-eraser').classList.contains('menu-btn-active')) activeTab = 'eraser';
+            if(document.getElementById('menu-text').classList.contains('menu-btn-active')) activeTab = 'text';
+
+            let nextIndex = currentEditorImageIndex + direction;
+            if (nextIndex >= foundImages.length) nextIndex = 0;
+            if (nextIndex < 0) nextIndex = foundImages.length - 1;
+            
+            loadToEditor(nextIndex);
+
+            if(isMenuOpen) {
+                toggleTools(false); openSubMenu(activeTab);
+            }
+        };
+
+        // FUNGSI LOAD EDITOR (Memuat Kapsul Milik Gambar Saja)
+        window.loadToEditor = (index) => {
+            fullEditorReset(); 
+            const imgData = foundImages[index]; 
+            currentEditorImageIndex = index;
+            isImportedImage = false; 
+            updateFloatingControls();
+            document.getElementById('enhancementPanel').classList.remove('hidden');
+            imageCounter.innerText = `${index + 1} / ${foundImages.length}`;
+            
+            if(imgData.draftData) {
+                editorCanvas.width = imgData.draftDims.w; editorCanvas.height = imgData.draftDims.h;
+                ctx.putImageData(imgData.draftData, 0, 0);
+                
+                if(imgData.draftUndoStack && imgData.draftUndoStack.length > 0) {
+                     undoStack = [...imgData.draftUndoStack];
+                     document.getElementById('btnUndo').disabled = false;
+                }
+                
+                // MUAT KAPSUL LOKAL!
+                appliedShadersList = imgData.draftBadges ? [...imgData.draftBadges] : [];
+                renderShaderBadges();
+                if(appliedShadersList.length > 0) {
+                    currentActiveShader = appliedShadersList[appliedShadersList.length - 1];
+                    btnApplyAll.classList.remove('hidden');
+                }
+
+                const img = new Image();
+                img.onload = () => {
+                    originalImportedImage = document.createElement('canvas');
+                    originalImportedImage.width = img.width; originalImportedImage.height = img.height;
+                    originalImportedImage.getContext('2d').drawImage(img, 0, 0);
+                    
+                    if(imgData.draftText) {
+                        textState = imgData.draftText.state; textInner.innerText = imgData.draftText.content;
+                        if(imgData.draftText.colors) {
+                             document.getElementById('textColorPicker').value = imgData.draftText.colors.text;
+                             document.getElementById('outlineColorPicker').value = imgData.draftText.colors.outline;
+                             document.getElementById('outlineSizeSlider').value = imgData.draftText.colors.outlineSize;
+                             document.getElementById('outlineCheck').checked = imgData.draftText.colors.hasOutline;
+                             updateTextStyle();
+                        }
+                        toggleTextVisibility(true); document.getElementById('textVisibleToggle').checked = true;
+                        openSubMenu('text'); syncTextOverlayVisuals();
+                    }
+                };
+                img.src = imgData.url;
+
+                headerFileName.innerText = imgData.name + ` (${imgData.draftDims.w}x${imgData.draftDims.h})*`;
+                document.getElementById('resizeW').value = imgData.draftDims.w; document.getElementById('resizeH').value = imgData.draftDims.h;
+                switchView('editor'); 
+                
+                const viewport = document.getElementById('canvasViewport');
+                let fitScale = Math.min((viewport.clientWidth - 40) / imgData.draftDims.w, (viewport.clientHeight - 80) / imgData.draftDims.h);
+                fitScale = Math.min(fitScale, 2.0); fitScale = Math.max(fitScale, 0.1);
+                pannedX = 0; pannedY = 0; applyZoom(fitScale);
+                return;
+            }
+
+            // GAMBAR BARU (BELUM ADA DRAF)
+            appliedShadersList = [];
+            renderShaderBadges();
+            currentActiveShader = null;
+            btnApplyAll.classList.add('hidden');
+
+            const img = new Image();
+            img.onload = () => {
+                editorCanvas.width = img.width; editorCanvas.height = img.height;
+                ctx.imageSmoothingEnabled = false; 
+                ctx.clearRect(0,0,img.width, img.height); ctx.drawImage(img, 0, 0);
+                originalImportedImage = document.createElement('canvas'); 
+                originalImportedImage.width = img.width; originalImportedImage.height = img.height; 
+                originalImportedImage.getContext('2d').drawImage(img, 0, 0);
+                
+                headerFileName.innerText = imgData.name + ` (${img.width}x${img.height})`;
+                document.getElementById('resizeW').value = img.width; document.getElementById('resizeH').value = img.height;
+                switchView('editor'); 
+                
+                const viewport = document.getElementById('canvasViewport');
+                let fitScale = Math.min((viewport.clientWidth - 40) / img.width, (viewport.clientHeight - 40) / img.height);
+                fitScale = Math.min(fitScale, 2.0); fitScale = Math.max(fitScale, 0.1);
+                fitScale = Math.floor(fitScale * 10) / 10; if(fitScale === 0) fitScale = 0.1;
+                
+                pannedX = 0; pannedY = 0; applyZoom(fitScale);
+            };
+            img.src = imgData.url;
+        }
 
         
         // --- BACK BUTTON LOGIC ---
@@ -2135,51 +2287,6 @@
             reader.readAsDataURL(file);
         };
 
-        window.loadToEditor = (index) => {
-            fullEditorReset(); 
-            const imgData = foundImages[index]; 
-            currentEditorImageIndex = index;
-            isImportedImage = false; 
-            updateFloatingControls();
-            document.getElementById('enhancementPanel').classList.remove('hidden');
-            
-            imageCounter.innerText = `${index + 1} / ${foundImages.length}`;
-            
-            if(imgData.draftData) {
-                editorCanvas.width = imgData.draftDims.w; 
-                editorCanvas.height = imgData.draftDims.h;
-                ctx.putImageData(imgData.draftData, 0, 0);
-                
-                if(imgData.draftUndoStack && imgData.draftUndoStack.length > 0) {
-                     undoStack = [...imgData.draftUndoStack];
-                     document.getElementById('btnUndo').disabled = false;
-                }
-                
-                const img = new Image();
-                img.onload = () => {
-                    originalImportedImage = document.createElement('canvas');
-                    originalImportedImage.width = img.width;
-                    originalImportedImage.height = img.height;
-                    originalImportedImage.getContext('2d').drawImage(img, 0, 0);
-                    
-                    if(imgData.draftText) {
-                        textState = imgData.draftText.state;
-                        textInner.innerText = imgData.draftText.content;
-                        if(imgData.draftText.colors) {
-                             document.getElementById('textColorPicker').value = imgData.draftText.colors.text;
-                             document.getElementById('outlineColorPicker').value = imgData.draftText.colors.outline;
-                             document.getElementById('outlineSizeSlider').value = imgData.draftText.colors.outlineSize;
-                             document.getElementById('outlineCheck').checked = imgData.draftText.colors.hasOutline;
-                             updateTextStyle();
-                        }
-                        toggleTextVisibility(true);
-                        document.getElementById('textVisibleToggle').checked = true;
-                        openSubMenu('text');
-                        syncTextOverlayVisuals();
-                    }
-                };
-                img.src = imgData.url;
-
                 headerFileName.innerText = imgData.name + ` (${imgData.draftDims.w}x${imgData.draftDims.h})*`;
                 document.getElementById('resizeW').value = imgData.draftDims.w; 
                 document.getElementById('resizeH').value = imgData.draftDims.h;
@@ -2545,12 +2652,6 @@
         window.openOutlineMenu = () => {
              document.getElementById('outlineSelectionModal').classList.remove('hidden');
         };
-        
-        window.navigateEditor = (direction) => {
-            if (foundImages.length === 0 || isImportedImage) {
-                showNotification("Navigasi tidak tersedia (Import/Kosong)", "error");
-                return;
-            }
             
             // SAVE CURRENT DRAFT
             if(currentEditorImageIndex > -1) {
@@ -2596,289 +2697,233 @@
             }
         };
 
-        window.applyShader = async (type) => {
-            if (!originalImportedImage) { showNotification("Error: Tidak ada data asli!", "error"); return; }
+        window.applyShader = async (type, isBatchProcessing = false) => {
+            if (!originalImportedImage) { 
+                if(!isBatchProcessing) showNotification("Error: Tidak ada data asli!", "error"); 
+                return; 
+            }
             
             const targetImg = currentEditorImageIndex > -1 ? foundImages[currentEditorImageIndex] : null;
-
-            // --- 0. SOLUSI ANTI-KEDIP & ANTI-FREEZE ---
-            // Hanya aktifkan layar loading untuk shader berat yang butuh waktu proses lama.
-            // Shader warna ringan akan dieksekusi instan tanpa kedipan!
             const slowShaders = ['fxaa', 'shader_5xbr', 'cartoon'];
             const isSlow = slowShaders.includes(type);
 
-            if (isSlow) {
-                document.getElementById('loadingOverlay').classList.remove('hidden');
-                document.getElementById('loadingStatus').innerText = "Memproses Algoritma...";
-                await new Promise(r => setTimeout(r, 50)); 
+            // JIKA BUKAN BATCH: Tampilkan UI, Kapsul, dan Loading
+            if (!isBatchProcessing) {
+                if (isSlow) {
+                    document.getElementById('loadingOverlay').classList.remove('hidden');
+                    document.getElementById('loadingStatus').innerText = "Memproses Algoritma...";
+                    await new Promise(r => setTimeout(r, 50)); 
+                }
+
+                const heavyShaders = ['natural', 'fxaa', 'shader_5xbr', 'smart_contrast', 'cartoon', 'retro_color', 'cool'];
+                if (targetImg && targetImg.isHidden && heavyShaders.includes(type)) {
+                    showNotification("⛔ PERINGATAN: Shader ini membuat ukuran file Embed BENGKAK!", "error");
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+
+                saveState();
+                appliedShadersList.push(type); 
+                renderShaderBadges();
+                currentActiveShader = type; 
+                btnApplyAll.classList.remove('hidden'); 
             }
 
-            // --- 1. FITUR SMART WARNING (NOTIFIKASI MERAH) ---
-            const heavyShaders = ['natural', 'fxaa', 'shader_5xbr', 'smart_contrast', 'cartoon', 'retro_color', 'cool'];
-            
-            if (targetImg && targetImg.isHidden && heavyShaders.includes(type)) {
-                showNotification("⛔ PERINGATAN: Shader ini membuat ukuran file Embed BENGKAK! Gunakan fitur Palet.", "error");
-                await new Promise(r => setTimeout(r, 2000));
-            }
-
-            saveState();
-			appliedShadersList.push(type); 
-            renderShaderBadges();
-            currentActiveShader = type; 
-            btnApplyAll.classList.remove('hidden'); 
-
-            const w = editorCanvas.width;
-            const h = editorCanvas.height;
+            const w = editorCanvas.width; const h = editorCanvas.height;
             const imgData = ctx.getImageData(0, 0, w, h); 
             const d = imgData.data;
 
-            // --- 2. LOGIKA MANIPULASI PALET (AMAN UNTUK EMBED) ---
+            // (LOGIKA SHADER TETAP SAMA)
             if (type === 'palette_bright') {
-                const sat = 1.4; const bright = 15; const detailLevel = 4; 
-                let colorMap = new Map();
-                for(let i=0; i<d.length; i+=4) {
-                    if (d[i+3] < 50) continue; 
+                const sat = 1.4; const bright = 15; const detailLevel = 4; let colorMap = new Map();
+                for(let i=0; i<d.length; i+=4) { if (d[i+3] < 50) continue; 
                     let key = `${d[i]},${d[i+1]},${d[i+2]}`;
-                    if (!colorMap.has(key)) {
-                        let r = d[i], g = d[i+1], b = d[i+2];
-                        let luma = 0.299*r + 0.587*g + 0.114*b;
-                        let nr = luma + (r - luma) * sat + bright;
-                        let ng = luma + (g - luma) * sat + bright;
-                        let nb = luma + (b - luma) * sat + bright;
-                        nr = Math.max(0, Math.min(255, Math.round(nr / detailLevel) * detailLevel));
-                        ng = Math.max(0, Math.min(255, Math.round(ng / detailLevel) * detailLevel));
-                        nb = Math.max(0, Math.min(255, Math.round(nb / detailLevel) * detailLevel));
+                    if (!colorMap.has(key)) { let r = d[i], g = d[i+1], b = d[i+2]; let luma = 0.299*r + 0.587*g + 0.114*b;
+                        let nr = luma + (r - luma) * sat + bright; let ng = luma + (g - luma) * sat + bright; let nb = luma + (b - luma) * sat + bright;
+                        nr = Math.max(0, Math.min(255, Math.round(nr / detailLevel) * detailLevel)); ng = Math.max(0, Math.min(255, Math.round(ng / detailLevel) * detailLevel)); nb = Math.max(0, Math.min(255, Math.round(nb / detailLevel) * detailLevel));
                         colorMap.set(key, [nr, ng, nb]);
                     }
-                    let newColor = colorMap.get(key);
-                    d[i] = newColor[0]; d[i+1] = newColor[1]; d[i+2] = newColor[2];
+                    let newColor = colorMap.get(key); d[i] = newColor[0]; d[i+1] = newColor[1]; d[i+2] = newColor[2];
                 }
                 ctx.putImageData(imgData, 0, 0);
-                showNotification("Terang & Hidup diaplikasikan", "success");
             }
             else if (type === 'palette_enhance') {
-                const contrast = 60; 
-                const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
-                const detailLevel = 8; 
-                let colorMap = new Map();
-                for(let i=0; i<d.length; i+=4) {
-                    if (d[i+3] < 50) continue; 
+                const contrast = 60; const factor = (259 * (contrast + 255)) / (255 * (259 - contrast)); const detailLevel = 8; let colorMap = new Map();
+                for(let i=0; i<d.length; i+=4) { if (d[i+3] < 50) continue; 
                     let key = `${d[i]},${d[i+1]},${d[i+2]}`;
-                    if (!colorMap.has(key)) {
-                        let r = d[i], g = d[i+1], b = d[i+2];
-                        let nr = factor * (r - 128) + 128; let ng = factor * (g - 128) + 128; let nb = factor * (b - 128) + 128;
-                        nr = Math.max(0, Math.min(255, Math.round(nr / detailLevel) * detailLevel));
-                        ng = Math.max(0, Math.min(255, Math.round(ng / detailLevel) * detailLevel));
-                        nb = Math.max(0, Math.min(255, Math.round(nb / detailLevel) * detailLevel));
+                    if (!colorMap.has(key)) { let r = d[i], g = d[i+1], b = d[i+2]; let nr = factor * (r - 128) + 128; let ng = factor * (g - 128) + 128; let nb = factor * (b - 128) + 128;
+                        nr = Math.max(0, Math.min(255, Math.round(nr / detailLevel) * detailLevel)); ng = Math.max(0, Math.min(255, Math.round(ng / detailLevel) * detailLevel)); nb = Math.max(0, Math.min(255, Math.round(nb / detailLevel) * detailLevel));
                         colorMap.set(key, [nr, ng, nb]);
                     }
-                    let newColor = colorMap.get(key);
-                    d[i] = newColor[0]; d[i+1] = newColor[1]; d[i+2] = newColor[2];
+                    let newColor = colorMap.get(key); d[i] = newColor[0]; d[i+1] = newColor[1]; d[i+2] = newColor[2];
                 }
                 ctx.putImageData(imgData, 0, 0);
-                showNotification("Pertegas (Anti-Redup) diaplikasikan", "success");
             }
             else if (type === 'palette_warm') {
-                const detailLevel = 4;
-                let colorMap = new Map();
-                for(let i=0; i<d.length; i+=4) {
-                    if (d[i+3] < 50) continue; 
+                const detailLevel = 4; let colorMap = new Map();
+                for(let i=0; i<d.length; i+=4) { if (d[i+3] < 50) continue; 
                     let key = `${d[i]},${d[i+1]},${d[i+2]}`;
-                    if (!colorMap.has(key)) {
-                        let r = d[i], g = d[i+1], b = d[i+2];
-                        let luma = 0.299*r + 0.587*g + 0.114*b;
+                    if (!colorMap.has(key)) { let r = d[i], g = d[i+1], b = d[i+2]; let luma = 0.299*r + 0.587*g + 0.114*b;
                         let nr = r * 0.5 + luma * 0.5 + 40; let ng = g * 0.5 + luma * 0.5 + 15; let nb = b * 0.5 + luma * 0.5 - 30; 
-                        nr = Math.max(0, Math.min(255, Math.round(nr / detailLevel) * detailLevel));
-                        ng = Math.max(0, Math.min(255, Math.round(ng / detailLevel) * detailLevel));
-                        nb = Math.max(0, Math.min(255, Math.round(nb / detailLevel) * detailLevel));
+                        nr = Math.max(0, Math.min(255, Math.round(nr / detailLevel) * detailLevel)); ng = Math.max(0, Math.min(255, Math.round(ng / detailLevel) * detailLevel)); nb = Math.max(0, Math.min(255, Math.round(nb / detailLevel) * detailLevel));
                         colorMap.set(key, [nr, ng, nb]);
                     }
-                    let newColor = colorMap.get(key);
-                    d[i] = newColor[0]; d[i+1] = newColor[1]; d[i+2] = newColor[2];
+                    let newColor = colorMap.get(key); d[i] = newColor[0]; d[i+1] = newColor[1]; d[i+2] = newColor[2];
                 }
                 ctx.putImageData(imgData, 0, 0);
-                showNotification("Suasana Senja/Hangat diaplikasikan", "success");
             }
             else if (type === 'palette_outline') {
-                const copy = new Uint8ClampedArray(d);
-                let outlineColor = [70, 70, 70]; 
-                for(let y=0; y<h; y++) {
-                    for(let x=0; x<w; x++) {
-                        const idx = (y * w + x) * 4;
-                        if (copy[idx+3] < 50) { 
-                             let neighborFound = false;
-                             const neighbors = [[0,-1], [0,1], [-1,0], [1,0]]; 
-                             for(let n of neighbors) {
-                                 const nx = x+n[0]; const ny = y+n[1];
-                                 if(nx>=0 && nx<w && ny>=0 && ny<h) {
-                                     const nIdx = (ny * w + nx) * 4;
-                                     if(copy[nIdx+3] > 100) { neighborFound = true; break; }
-                                 }
-                             }
-                             if(neighborFound) {
-                                 d[idx] = outlineColor[0]; d[idx+1] = outlineColor[1]; d[idx+2] = outlineColor[2]; d[idx+3] = 255; 
-                             }
-                        }
-                    }
-                }
-                ctx.putImageData(imgData, 0, 0);
-                showNotification("Outline Halus (Embed Safe) diaplikasikan", "success");
+                const copy = new Uint8ClampedArray(d); let outlineColor = [70, 70, 70]; 
+                for(let y=0; y<h; y++) { for(let x=0; x<w; x++) { const idx = (y * w + x) * 4; if (copy[idx+3] < 50) { 
+                             let neighborFound = false; const neighbors = [[0,-1], [0,1], [-1,0], [1,0]]; 
+                             for(let n of neighbors) { const nx = x+n[0]; const ny = y+n[1]; if(nx>=0 && nx<w && ny>=0 && ny<h) { const nIdx = (ny * w + nx) * 4; if(copy[nIdx+3] > 100) { neighborFound = true; break; } } }
+                             if(neighborFound) { d[idx] = outlineColor[0]; d[idx+1] = outlineColor[1]; d[idx+2] = outlineColor[2]; d[idx+3] = 255; }
+                } } } ctx.putImageData(imgData, 0, 0);
             }
-
-            // --- 3. LOGIKA SHADER STANDALONE ---
             else if (type === 'cartoon') {
-                const copy = new Uint8ClampedArray(d);
-                const step = 48; 
-                for (let y = 0; y < h; y++) {
-                    for (let x = 0; x < w; x++) {
-                        const i = (y * w + x) * 4;
-                        if (d[i+3] === 0) continue;
-
+                const copy = new Uint8ClampedArray(d); const step = 48; 
+                for (let y = 0; y < h; y++) { for (let x = 0; x < w; x++) { const i = (y * w + x) * 4; if (d[i+3] === 0) continue;
                         d[i] = Math.round(d[i] / step) * step; d[i+1] = Math.round(d[i+1] / step) * step; d[i+2] = Math.round(d[i+2] / step) * step;
-                        if (x < w - 1 && y < h - 1) {
-                            const iRight = (y * w + (x + 1)) * 4; const iBottom = ((y + 1) * w + x) * 4;
+                        if (x < w - 1 && y < h - 1) { const iRight = (y * w + (x + 1)) * 4; const iBottom = ((y + 1) * w + x) * 4;
                             const diffX = Math.abs(copy[i] - copy[iRight]) + Math.abs(copy[i+1] - copy[iRight+1]) + Math.abs(copy[i+2] - copy[iRight+2]);
                             const diffY = Math.abs(copy[i] - copy[iBottom]) + Math.abs(copy[i+1] - copy[iBottom+1]) + Math.abs(copy[i+2] - copy[iBottom+2]);
-                            
-                            if (diffX > 80 || diffY > 80) {
-                                d[i] = Math.max(0, d[i] - 70); d[i+1] = Math.max(0, d[i+1] - 70); d[i+2] = Math.max(0, d[i+2] - 70);
-                            }
+                            if (diffX > 80 || diffY > 80) { d[i] = Math.max(0, d[i] - 70); d[i+1] = Math.max(0, d[i+1] - 70); d[i+2] = Math.max(0, d[i+2] - 70); }
                         }
-                    }
-                }
-                ctx.putImageData(imgData, 0, 0);
-                showNotification("Cartoon Cel-Shading diaplikasikan", "success");
+                } } ctx.putImageData(imgData, 0, 0);
             }
             else if (type === 'retro_color') {
                 const step = 51; const sat = 1.3; 
-                for(let i=0; i<d.length; i+=4) {
-                    if (d[i+3] === 0) continue;
-                    let r = d[i], g = d[i+1], b = d[i+2];
-                    let luma = 0.299*r + 0.587*g + 0.114*b;
+                for(let i=0; i<d.length; i+=4) { if (d[i+3] === 0) continue; let r = d[i], g = d[i+1], b = d[i+2]; let luma = 0.299*r + 0.587*g + 0.114*b;
                     r = luma + (r - luma) * sat; g = luma + (g - luma) * sat; b = luma + (b - luma) * sat;
-                    d[i] = Math.max(0, Math.min(255, Math.round(r / step) * step));
-                    d[i+1] = Math.max(0, Math.min(255, Math.round(g / step) * step));
-                    d[i+2] = Math.max(0, Math.min(255, Math.round(b / step) * step));
-                }
-                ctx.putImageData(imgData, 0, 0);
-                showNotification("Retro Nokia 256-Color diaplikasikan", "success");
+                    d[i] = Math.max(0, Math.min(255, Math.round(r / step) * step)); d[i+1] = Math.max(0, Math.min(255, Math.round(g / step) * step)); d[i+2] = Math.max(0, Math.min(255, Math.round(b / step) * step));
+                } ctx.putImageData(imgData, 0, 0);
             }
             else if (type === 'natural') {
-                const sat = 1.3; const con = 10;  
-                const factor = (259 * (con + 255)) / (255 * (259 - con));
-                for(let i=0; i<d.length; i+=4) {
-                    let r = d[i], g = d[i+1], b = d[i+2];
-                    const gray = 0.299*r + 0.587*g + 0.114*b;
+                const sat = 1.3; const con = 10; const factor = (259 * (con + 255)) / (255 * (259 - con));
+                for(let i=0; i<d.length; i+=4) { let r = d[i], g = d[i+1], b = d[i+2]; const gray = 0.299*r + 0.587*g + 0.114*b;
                     r = gray + (r - gray) * sat; g = gray + (g - gray) * sat; b = gray + (b - gray) * sat;
                     r = factor * (r - 128) + 128; g = factor * (g - 128) + 128; b = factor * (b - 128) + 128;
                     d[i] = r; d[i+1] = g; d[i+2] = b;
-                }
-                ctx.putImageData(imgData, 0, 0);
-                showNotification("Natural Color Applied", "success");
+                } ctx.putImageData(imgData, 0, 0);
             }
             else if (type === 'grayscale') {
-                for(let i=0; i<d.length; i+=4) {
-                    const r = d[i], g = d[i+1], b = d[i+2];
-                    const gray = 0.299*r + 0.587*g + 0.114*b;
+                for(let i=0; i<d.length; i+=4) { const r = d[i], g = d[i+1], b = d[i+2]; const gray = 0.299*r + 0.587*g + 0.114*b;
                     d[i] = gray; d[i+1] = gray; d[i+2] = gray;
-                }
-                ctx.putImageData(imgData, 0, 0);
-                showNotification("Grayscale Applied", "success");
+                } ctx.putImageData(imgData, 0, 0);
             }
             else if (type === 'cool') {
-                 for(let i=0; i<d.length; i+=4) {
-                    d[i] = Math.max(0, d[i] - 10); d[i+2] = Math.min(255, d[i+2] + 25); 
-                }
-                ctx.putImageData(imgData, 0, 0);
-                showNotification("Cool Cyber Applied", "success");
+                 for(let i=0; i<d.length; i+=4) { d[i] = Math.max(0, d[i] - 10); d[i+2] = Math.min(255, d[i+2] + 25); } ctx.putImageData(imgData, 0, 0);
             }
             else if (type === 'smart_contrast') {
-                const contrast = 30; 
-                const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
-                for(let i=0; i<d.length; i+=4) {
-                    if(d[i+3] > 10) {
-                        d[i] = factor * (d[i] - 128) + 128; d[i+1] = factor * (d[i+1] - 128) + 128; d[i+2] = factor * (d[i+2] - 128) + 128;
-                    }
-                }
-                ctx.putImageData(imgData, 0, 0);
-                showNotification("Smart Contrast Applied", "success");
+                const contrast = 30; const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+                for(let i=0; i<d.length; i+=4) { if(d[i+3] > 10) { d[i] = factor * (d[i] - 128) + 128; d[i+1] = factor * (d[i+1] - 128) + 128; d[i+2] = factor * (d[i+2] - 128) + 128; } } ctx.putImageData(imgData, 0, 0);
             }
             else if (type === 'fxaa') {
-                const copy = new Uint8ClampedArray(d);
-                const radius = Math.min(20, Math.max(15, Math.floor(Math.max(w, h) / 5))); 
-                const colorThresh = 80; 
-                
-                for (let y = 0; y < h; y++) {
-                    for (let x = 0; x < w; x++) {
-                        const i = (y * w + x) * 4;
-                        if (copy[i+3] < 50) continue;
-
-                        let r = 0, g = 0, b = 0;
-                        let weightSum = 0;
-
-                        for(let dy = -radius; dy <= radius; dy++) {
-                            for(let dx = -radius; dx <= radius; dx++) {
-                                const nx = x + dx, ny = y + dy;
-                                if(nx>=0 && nx<w && ny>=0 && ny<h) {
-                                    const ni = (ny * w + nx) * 4;
-                                    const colorDist = Math.abs(copy[i]-copy[ni]) + Math.abs(copy[i+1]-copy[ni+1]) + Math.abs(copy[i+2]-copy[ni+2]);
-                                    
-                                    if (colorDist < colorThresh) {
-                                        r += copy[ni]; g += copy[ni+1]; b += copy[ni+2];
-                                        weightSum++;
-                                    }
-                                }
-                            }
-                        }
-                        if (weightSum > 0) {
-                            d[i] = r / weightSum; d[i+1] = g / weightSum; d[i+2] = b / weightSum; 
-                            d[i+3] = copy[i+3]; 
-                        }
-                    }
-                }
-                ctx.putImageData(imgData, 0, 0);
-                showNotification(`Smart Smooth (Radius: ${radius}) diaplikasikan`, "success");
+                const copy = new Uint8ClampedArray(d); const radius = Math.min(20, Math.max(15, Math.floor(Math.max(w, h) / 5))); const colorThresh = 80; 
+                for (let y = 0; y < h; y++) { for (let x = 0; x < w; x++) { const i = (y * w + x) * 4; if (copy[i+3] < 50) continue;
+                        let r = 0, g = 0, b = 0; let weightSum = 0;
+                        for(let dy = -radius; dy <= radius; dy++) { for(let dx = -radius; dx <= radius; dx++) { const nx = x + dx, ny = y + dy;
+                                if(nx>=0 && nx<w && ny>=0 && ny<h) { const ni = (ny * w + nx) * 4; const colorDist = Math.abs(copy[i]-copy[ni]) + Math.abs(copy[i+1]-copy[ni+1]) + Math.abs(copy[i+2]-copy[ni+2]);
+                                    if (colorDist < colorThresh) { r += copy[ni]; g += copy[ni+1]; b += copy[ni+2]; weightSum++; }
+                                } } }
+                        if (weightSum > 0) { d[i] = r / weightSum; d[i+1] = g / weightSum; d[i+2] = b / weightSum; d[i+3] = copy[i+3]; }
+                } } ctx.putImageData(imgData, 0, 0);
             }
             else if (type === 'shader_5xbr') {
-                const passes = Math.max(1, Math.min(2, Math.floor(Math.max(w, h) / 70))); 
-                let currentData = new Uint8ClampedArray(d);
+                const passes = Math.max(1, Math.min(2, Math.floor(Math.max(w, h) / 70))); let currentData = new Uint8ClampedArray(d);
                 const sim = (dataArr, i1, i2) => Math.abs(dataArr[i1]-dataArr[i2]) + Math.abs(dataArr[i1+1]-dataArr[i2+1]) + Math.abs(dataArr[i1+2]-dataArr[i2+2]) < 40;
-
-                for (let p = 0; p < passes; p++) {
-                    const nextData = new Uint8ClampedArray(currentData);
-                    for (let y = 1; y < h - 1; y++) {
-                        for (let x = 1; x < w - 1; x++) {
-                            const i = (y * w + x) * 4;
-                            if (currentData[i+3] < 50) continue;
-
-                            const iU = ((y-1) * w + x) * 4; const iD = ((y+1) * w + x) * 4; 
-                            const iL = (y * w + x - 1) * 4; const iR = (y * w + x + 1) * 4; 
-                            let blendTarget = null;
-
+                for (let p = 0; p < passes; p++) { const nextData = new Uint8ClampedArray(currentData);
+                    for (let y = 1; y < h - 1; y++) { for (let x = 1; x < w - 1; x++) { const i = (y * w + x) * 4; if (currentData[i+3] < 50) continue;
+                            const iU = ((y-1) * w + x) * 4; const iD = ((y+1) * w + x) * 4; const iL = (y * w + x - 1) * 4; const iR = (y * w + x + 1) * 4; let blendTarget = null;
                             if (sim(currentData, iU, iL) && !sim(currentData, iU, iD) && !sim(currentData, iL, iR)) blendTarget = iU;      
                             else if (sim(currentData, iU, iR) && !sim(currentData, iU, iD) && !sim(currentData, iR, iL)) blendTarget = iU; 
                             else if (sim(currentData, iD, iL) && !sim(currentData, iD, iU) && !sim(currentData, iL, iR)) blendTarget = iD; 
                             else if (sim(currentData, iD, iR) && !sim(currentData, iD, iU) && !sim(currentData, iR, iL)) blendTarget = iD; 
-
-                            if (blendTarget !== null) {
-                                const blendRatio = (p === 0) ? 0.5 : 0.3; 
-                                nextData[i]   = currentData[i] * (1 - blendRatio) + currentData[blendTarget] * blendRatio;
+                            if (blendTarget !== null) { const blendRatio = (p === 0) ? 0.5 : 0.3; 
+                                nextData[i] = currentData[i] * (1 - blendRatio) + currentData[blendTarget] * blendRatio;
                                 nextData[i+1] = currentData[i+1] * (1 - blendRatio) + currentData[blendTarget+1] * blendRatio;
                                 nextData[i+2] = currentData[i+2] * (1 - blendRatio) + currentData[blendTarget+2] * blendRatio;
                             }
-                        }
-                    }
-                    currentData = nextData;
+                    } } currentData = nextData;
                 }
-                for (let i = 0; i < d.length; i++) { d[i] = currentData[i]; }
-                ctx.putImageData(imgData, 0, 0);
-                showNotification(`5xBR (Vector ${passes} Pass) diaplikasikan`, "success");
+                for (let i = 0; i < d.length; i++) { d[i] = currentData[i]; } ctx.putImageData(imgData, 0, 0);
             }
             
-            // --- 4. TUTUP LOADING (HANYA JIKA TADI DIBUKA) ---
-            if (isSlow) {
-                document.getElementById('loadingOverlay').classList.add('hidden');
+            // JIKA BUKAN BATCH: Tutup loading dan tampilkan notifikasi
+            if (!isBatchProcessing) {
+                showNotification(`Efek diaplikasikan`, "success");
+                if (isSlow) document.getElementById('loadingOverlay').classList.add('hidden');
             }
+        };
+
+        window.applyShaderToAll = () => {
+            if (!currentActiveShader || foundImages.length === 0) return;
+            
+            const shaderName = shaderBadgeInfo[currentActiveShader]?.name || 'Terpilih';
+            
+            // MENGGUNAKAN CUSTOM CONFIRM!
+            customConfirm(`Terapkan efek '${shaderName}' ke semua gambar (${foundImages.length} items)?\n\nPeringatan: Proses ini akan menimpa modifikasi lain pada gambar yang belum tersimpan.`, async () => {
+                
+                document.getElementById('loadingOverlay').classList.remove('hidden');
+                const originalIndex = currentEditorImageIndex;
+
+                try {
+                    let processed = 0;
+                    let failed = 0;
+
+                    for (let i = 0; i < foundImages.length; i++) {
+                        const imgData = foundImages[i];
+                        document.getElementById('loadingStatus').innerText = `Memproses: ${i + 1} / ${foundImages.length}`;
+
+                        const img = new Image();
+                        await new Promise((resolve, reject) => {
+                            img.onload = resolve; img.onerror = reject; img.src = imgData.url; 
+                        });
+                        
+                        editorCanvas.width = img.width; editorCanvas.height = img.height;
+                        ctx.clearRect(0, 0, img.width, img.height);
+                        ctx.drawImage(img, 0, 0);
+
+                        // EKSEKUSI SHADER DENGAN MODE BATCH (Tanpa merusak UI Kapsul)
+                        await applyShader(currentActiveShader, true); 
+
+                        const w = editorCanvas.width; 
+                        const h = editorCanvas.height;
+                        const buffer = new Uint8Array(ctx.getImageData(0,0,w,h).data).buffer;
+                        const bestBuffer = await smartCompress(buffer, w, h, imgData.isHidden ? imgData.size : null);
+
+                        if (bestBuffer) {
+                            const blob = new Blob([bestBuffer], {type:'image/png'});
+                            if(imgData.url) URL.revokeObjectURL(imgData.url);
+                            imgData.modifiedData = blob; imgData.blob = blob; imgData.url = URL.createObjectURL(blob);
+                            imgData.modified = true; imgData.isBatch = true;
+                            
+                            // HAPUS SEMUA DRAF LOKAL AGAR TIDAK BENTROK
+                            if(imgData.draftData) delete imgData.draftData;
+                            if(imgData.draftBadges) delete imgData.draftBadges;
+                            if(imgData.draftUndoStack) delete imgData.draftUndoStack;
+                            
+                            processed++;
+                        } else {
+                            failed++;
+                        }
+                    }
+                    
+                    if (originalIndex > -1) {
+                        loadToEditor(originalIndex);
+                    }
+
+                    let msg = `Sukses: ${processed} gambar diterapkan.`;
+                    if(failed > 0) msg += ` Gagal: ${failed} (Batas embed).`;
+                    showNotification(msg, failed > 0 ? "warning" : "success");
+                    
+                    renderList(); 
+                    
+                } catch (e) {
+                    showNotification("Batch Error: " + e.message, "error");
+                } finally {
+                    document.getElementById('loadingOverlay').classList.add('hidden');
+                }
+            });
         };
 
         window.applyShaderToAll = async () => {
