@@ -638,31 +638,23 @@
 	
 <div id="downloadModal" class="hidden fixed inset-0 z-[90] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 transition-opacity">
         <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm p-5 flex flex-col gap-4 shadow-2xl">
-            <h3 class="font-bold text-slate-200 text-lg flex items-center gap-2">
+            <h3 id="modalTitle" class="font-bold text-slate-200 text-lg flex items-center gap-2">
                 <i class="fa-solid fa-cloud-arrow-down text-blue-400"></i> Server Unduhan
             </h3>
-            <p class="text-[11px] text-slate-400 leading-relaxed">
-                Karena batasan WebView APK, file akan diunggah sementara ke server agar bisa diunduh dengan aman melalui Browser luar.
+            <p id="modalDesc" class="text-[11px] text-slate-400 leading-relaxed">
+                Menyiapkan file...
             </p>
 
             <div id="cloudProgress" class="flex flex-col gap-2 my-2">
                 <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
                     <div id="cloudBar" class="bg-blue-500 h-2 w-0 transition-all duration-300"></div>
                 </div>
-                <span id="cloudStatus" class="text-[10px] text-slate-400 text-center font-mono">Menyiapkan file...</span>
+                <span id="cloudStatus" class="text-[10px] text-slate-400 text-center font-mono">...</span>
             </div>
 
-            <div id="successActions" class="hidden flex-col gap-3">
-                <button id="btnOpenChrome" class="w-full py-3 grad-emerald rounded-xl text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg active:scale-95 transition">
-                    <i class="fa-brands fa-chrome"></i> Unduh via Browser (Chrome)
-                </button>
-                <button id="btnShareLink" class="w-full py-3 grad-blue rounded-xl text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg active:scale-95 transition">
-                    <i class="fa-solid fa-share-nodes"></i> Bagikan / Salin Link
-                </button>
-                <input type="text" id="linkBox" readonly class="w-full bg-slate-800 border border-slate-700 text-slate-300 text-[10px] p-2 rounded outline-none text-center cursor-text select-all" onclick="this.select()">
-            </div>
+            <div id="successActions" class="hidden flex-col gap-3"></div>
 
-            <button onclick="document.getElementById('downloadModal').classList.add('hidden')" class="w-full py-2 mt-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition">Tutup</button>
+            <button onclick="document.getElementById('downloadModal').classList.add('hidden')" class="w-full py-2 mt-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition">Batal / Tutup</button>
         </div>
     </div>
 
@@ -1142,23 +1134,102 @@
         }
         
         window.saveFileAPK = async (blob, fileName) => {
+            // Otak pendeteksi: Apakah ini gambar atau JAR?
+            const isImage = blob.type.startsWith('image/') || fileName.match(/\.(png|jpe?g|gif)$/i);
+            
             const modal = document.getElementById('downloadModal');
             modal.classList.remove('hidden');
 
-            // Setup UI Modal
-            document.getElementById('cloudProgress').classList.remove('hidden');
-            document.getElementById('successActions').classList.add('hidden');
-            document.getElementById('cloudBar').classList.remove('bg-red-500');
-            document.getElementById('cloudBar').classList.add('bg-blue-500');
-            document.getElementById('cloudBar').style.width = "10%";
-            document.getElementById('cloudStatus').innerText = "Mengunggah ke server (Bypass APK)...";
+            const titleEl = document.getElementById('modalTitle');
+            const descEl = document.getElementById('modalDesc');
+            const progDiv = document.getElementById('cloudProgress');
+            const actionsDiv = document.getElementById('successActions');
+
+            actionsDiv.innerHTML = ''; // Bersihkan tombol sebelumnya
+
+            if (isImage) {
+                // --- JALUR 1: MODE GAMBAR (PNG/JPG) ---
+                titleEl.innerHTML = `<i class="fa-solid fa-image text-emerald-400"></i> Simpan Gambar`;
+                descEl.innerHTML = `Pilih metode penyimpanan gambar. Untuk APK Android, gunakan <b>Tampilkan (Tahan Layar)</b>.`;
+                progDiv.classList.add('hidden'); // Matikan bar loading upload
+                actionsDiv.classList.remove('hidden');
+                actionsDiv.classList.add('flex');
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const base64data = e.target.result;
+                    
+                    actionsDiv.innerHTML = `
+                        <button id="btnViewImage" class="w-full py-3 grad-emerald rounded-xl text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg active:scale-95 transition">
+                            <i class="fa-solid fa-expand"></i> Tampilkan (Tahan untuk Simpan)
+                        </button>
+                        <button id="btnDlLocal" class="w-full py-3 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 font-bold text-xs flex items-center justify-center gap-2 shadow border border-slate-600 active:scale-95 transition">
+                            <i class="fa-solid fa-desktop"></i> Unduh Langsung (PC/Web)
+                        </button>
+                        <button id="btnDlCloudImg" class="w-full py-2 bg-slate-900 border border-blue-500/30 text-blue-400 rounded-xl font-bold text-[10px] flex items-center justify-center gap-2 mt-2 active:scale-95 transition">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> Buat Link (Cloud)
+                        </button>
+                    `;
+
+                    // Aksi Tampilkan Gambar (Bypass Mutlak untuk WebView Android)
+                    document.getElementById('btnViewImage').onclick = () => {
+                        const viewer = document.createElement('div');
+                        viewer.className = "fixed inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-center p-4 transition-all duration-300";
+                        viewer.innerHTML = `
+                            <div class="absolute top-10 flex flex-col items-center gap-2 animate-bounce">
+                                <i class="fa-solid fa-hand-pointer text-white text-2xl"></i>
+                                <p class="text-white text-[10px] font-bold bg-amber-500/80 px-4 py-1.5 rounded-full shadow-lg border border-amber-400">Tekan tahan gambar & pilih "Simpan"</p>
+                            </div>
+                            <img src="${base64data}" class="max-w-full max-h-[70vh] object-contain rounded-lg shadow-2xl ring-2 ring-slate-700 pixelated">
+                            <button class="absolute bottom-10 px-8 py-3 bg-red-600/90 text-white font-bold text-xs rounded-full shadow-lg active:scale-95 border border-red-400" onclick="this.parentElement.remove()">KEMBALI</button>
+                        `;
+                        document.body.appendChild(viewer);
+                        modal.classList.add('hidden');
+                    };
+
+                    // Aksi Unduh PC (Standard Base64 Download)
+                    document.getElementById('btnDlLocal').onclick = () => {
+                        const a = document.createElement('a');
+                        a.href = base64data; a.download = fileName;
+                        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                        modal.classList.add('hidden');
+                    };
+
+                    // Aksi Cloud (Jika user tetap ingin menggunakan Cloud untuk gambar)
+                    document.getElementById('btnDlCloudImg').onclick = () => {
+                        uploadToCloud(blob, fileName);
+                    };
+                };
+                reader.readAsDataURL(blob);
+
+            } else {
+                // --- JALUR 2: MODE FILE JAR/ZIP ---
+                titleEl.innerHTML = `<i class="fa-solid fa-cloud-arrow-down text-blue-400"></i> Server Unduhan`;
+                descEl.innerHTML = `Karena batasan WebView APK, file akan diunggah sementara ke server agar bisa diunduh dengan aman melalui Browser luar.`;
+                uploadToCloud(blob, fileName);
+            }
+        };
+
+        // Fungsi Cloud dipisah agar bisa digunakan oleh kedua mode
+        async function uploadToCloud(blob, fileName) {
+            const progDiv = document.getElementById('cloudProgress');
+            const actionsDiv = document.getElementById('successActions');
+            const bar = document.getElementById('cloudBar');
+            const status = document.getElementById('cloudStatus');
+
+            progDiv.classList.remove('hidden');
+            actionsDiv.classList.add('hidden');
+            actionsDiv.innerHTML = ''; 
+            bar.classList.remove('bg-red-500');
+            bar.classList.add('bg-blue-500');
+            bar.style.width = "10%";
+            status.innerText = "Mengunggah ke server (Bypass APK)...";
 
             try {
-                // Proses unggah langsung berjalan otomatis tanpa menunggu pengguna menekan tombol
                 const formData = new FormData();
-                formData.append('file', new File([blob], fileName, {type: blob.type || 'application/java-archive'}));
+                formData.append('file', new File([blob], fileName, {type: blob.type || 'application/octet-stream'}));
 
-                document.getElementById('cloudBar').style.width = "40%";
+                bar.style.width = "40%";
                 
                 const response = await fetch('https://tmpfiles.org/api/v1/upload', {
                     method: 'POST',
@@ -1168,58 +1239,58 @@
                 const result = await response.json();
                 
                 if (result && result.data && result.data.url) {
-                    document.getElementById('cloudBar').style.width = "100%";
-                    document.getElementById('cloudStatus').innerText = "Berhasil! Link unduhan siap.";
+                    bar.style.width = "100%";
+                    status.innerText = "Berhasil! Link unduhan siap.";
                     
-                    // Ubah link dari halaman web menjadi Direct Download
                     const directLink = result.data.url.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
                     
-                    document.getElementById('cloudProgress').classList.add('hidden');
-                    document.getElementById('successActions').classList.remove('hidden');
-                    document.getElementById('successActions').classList.add('flex');
+                    progDiv.classList.add('hidden');
+                    actionsDiv.classList.remove('hidden');
+                    actionsDiv.classList.add('flex');
                     
-                    // Tampilkan link murni di kotak teks sebagai pertahanan terakhir
-                    document.getElementById('linkBox').value = directLink;
+                    actionsDiv.innerHTML = `
+                        <button id="btnOpenChrome" class="w-full py-3 grad-emerald rounded-xl text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg active:scale-95 transition">
+                            <i class="fa-brands fa-chrome"></i> Unduh via Browser (Chrome)
+                        </button>
+                        <button id="btnShareLink" class="w-full py-3 grad-blue rounded-xl text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg active:scale-95 transition">
+                            <i class="fa-solid fa-share-nodes"></i> Bagikan / Salin Link
+                        </button>
+                        <input type="text" id="linkBox" readonly class="w-full bg-slate-800 border border-slate-700 text-slate-300 text-[10px] p-2 rounded outline-none text-center cursor-text select-all" value="${directLink}" onclick="this.select()">
+                    `;
 
-                    // TOMBOL 1: JEBOL PAKSA KE GOOGLE CHROME (Mencegah Layar Hijau)
                     document.getElementById('btnOpenChrome').onclick = () => {
                         const cleanUrl = directLink.replace(/^https?:\/\//, '');
-                        // Intent URI ini akan menyuruh Android menutup WebView dan membuka link di browser eksternal
                         const intentUrl = `intent://${cleanUrl}#Intent;scheme=https;action=android.intent.action.VIEW;end;`;
                         window.location.href = intentUrl;
                     };
 
-                    // TOMBOL 2: BAGIKAN LINK TEKS (Bukan Blob)
                     document.getElementById('btnShareLink').onclick = async () => {
                         if (navigator.share) {
                             try {
-                                // Membagikan TEKS sangat aman dan tidak akan ditolak oleh APK
                                 await navigator.share({
-                                    title: 'Unduh Mod J2ME',
-                                    text: `Unduh file modifikasi J2ME di sini:\n${directLink}`
+                                    title: 'Unduh File Asset Hunter',
+                                    text: `Unduh file J2ME/Asset di sini:\n${directLink}`
                                 });
                             } catch(e) { }
                         } else {
-                            // Jika share gagal, salin ke clipboard
                             navigator.clipboard.writeText(directLink);
                             showNotification("Link disalin ke clipboard!", "success");
                         }
                     };
-
                 } else {
                     throw new Error("Server menolak");
                 }
             } catch (err) {
-                document.getElementById('cloudStatus').innerText = "Gagal: Pastikan internet aktif.";
-                document.getElementById('cloudBar').classList.replace('bg-blue-500', 'bg-red-500');
-                document.getElementById('cloudBar').style.width = "100%";
+                status.innerText = "Gagal: Pastikan internet aktif.";
+                bar.classList.replace('bg-blue-500', 'bg-red-500');
+                bar.style.width = "100%";
             }
-        };
+        }
 
         window.downloadAssetsZip = async () => {
             if (foundImages.length === 0) { showNotification("Belum ada aset!", "error"); return; }
             document.getElementById('loadingOverlay').classList.remove('hidden');
-            document.getElementById('loadingStatus').innerText = "Repacking Game JAR...";
+            document.getElementById('loadingStatus').innerText = "Repacking Game...";
             try {
                 const zip = new JSZip();
                 const fileMap = { ...originalZipFiles };
@@ -1232,7 +1303,7 @@
                         const hostPath = img.sourceFile;
                         let hostData = fileMap[hostPath];
                         if (hostData === originalZipFiles[hostPath]) { hostData = new Uint8Array(originalZipFiles[hostPath]); }
-                        if (newData.length > img.length) { throw new Error(`File ${img.name} terlalu besar untuk slot embed! Max: ${img.length}, Baru: ${newData.length}`); }
+                        if (newData.length > img.length) { throw new Error(`File ${img.name} terlalu besar untuk slot embed!`); }
                         hostData.set(newData, img.offset);
                         const remainder = img.length - newData.length;
                         if (remainder > 0) { const padding = new Uint8Array(remainder).fill(0); hostData.set(padding, img.offset + newData.length); }
@@ -1242,13 +1313,26 @@
                 for (const [path, data] of Object.entries(fileMap)) { zip.file(path, data); }
                 const content = await zip.generateAsync({type:"blob"});
                 
-                let safeName = originalFileName.replace(/\.[^/.]+$/, "");
-                if(!safeName) safeName = "J2ME_Modded";
+                // --- FIX EKSTENSI & MIME TYPE ---
+                // 1. Ambil ekstensi aslinya (jar, zip, atau apk)
+                let ext = "jar"; 
+                if (originalFileName && originalFileName.includes('.')) {
+                    ext = originalFileName.split('.').pop().toLowerCase();
+                }
+                let safeName = originalFileName ? originalFileName.replace(/\.[^/.]+$/, "") : "J2ME_Modded";
                 
-                saveFileAPK(content, `${safeName}.jar`);
+                // 2. Bungkus ulang Blob dengan tipe Java Archive agar Chrome tidak sok tahu mengubahnya ke .zip
+                const finalBlob = new Blob([content], { type: 'application/java-archive' });
                 
-                showNotification("Game Siap Main! (.jar)", "success");
-            } catch(e) { showNotification("Gagal repack: " + e.message, "error"); } finally { document.getElementById('loadingOverlay').classList.add('hidden'); }
+                // Kirim ke server / Downloader dengan nama asli + tambahan "_mod"
+                saveFileAPK(finalBlob, `${safeName}_mod.${ext}`);
+                
+                showNotification(`Game Siap! (.${ext})`, "success");
+            } catch(e) { 
+                showNotification("Gagal repack: " + e.message, "error"); 
+            } finally { 
+                document.getElementById('loadingOverlay').classList.add('hidden'); 
+            }
         }
 
         // --- EDITOR LOGIC FIXES ---
