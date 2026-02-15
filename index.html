@@ -276,8 +276,8 @@
                 <div class="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mb-4 shadow-inner group-active:scale-95 transition">
                     <i class="fa-solid fa-box-open text-amber-500 text-3xl drop-shadow-lg"></i>
                 </div>
-                <h3 class="font-bold text-slate-200">Pilih File (Jar/Zip/Jpg&Png)</h3>
-                <p id="fileNameDisplay" class="text-xs text-slate-400 mt-1 text-center px-4">Perbaikan Bug Editor V2</p>
+                <h3 class="font-bold text-slate-200">PilFih File (Jar/Zip/Jpg&Png)</h3>
+                <p id="fileNameDisplay" class="text-xs text-slate-400 mt-1 text-center px-4">Perbaikan Bug Editor V3</p>
             </div>
 
             <div id="statsBar" class="hidden flex justify-between items-center mb-3 px-1">
@@ -679,612 +679,201 @@
 
     <script>
         // --- GLOBAL VARIABLES ---
-        let originalFileBytes = null;
-        let originalFileName = "";
-        let originalZipData = null; 
-        let originalZipFiles = {}; 
-        let foundImages = []; 
-        let editorCanvas = document.getElementById('editorCanvas');
-        let ctx = editorCanvas.getContext('2d');
-        let currentEditorImageIndex = -1; 
-        let originalImportedImage = null; 
-        let isImportedImage = false; 
-        let currentTool = 'none'; 
-        let scale = 1;
-        let pannedX = 0, pannedY = 0;
-        let isPanning = false;
-        let startPanX = 0, startPanY = 0;
-        let isDrawing = false;
-        let isTouchZooming = false;
-        let lastTouchDist = 0;
-        let selectionBox = document.getElementById('selectionBox');
-        let brushCursor = document.getElementById('brushCursor');
-        let selectionActive = false;
-        let selectionRect = { x: 0, y: 0, w: 0, h: 0 };
-        let selectionStart = { x: 0, y: 0 };
-        let undoStack = [];
-        const MAX_UNDO = 20; 
-        let hasPickedColor = false;
-        let lastEyedropperColor = null; 
-        let textOverlay = document.getElementById('textOverlay');
-        let textInner = document.getElementById('textInner');
+        let originalFileBytes = null; let originalFileName = ""; let originalZipData = null; let originalZipFiles = {}; 
+        let foundImages = []; let editorCanvas = document.getElementById('editorCanvas'); let ctx = editorCanvas.getContext('2d');
+        let currentEditorImageIndex = -1; let originalImportedImage = null; let isImportedImage = false; 
+        let currentTool = 'none'; let scale = 1; let pannedX = 0, pannedY = 0; let isPanning = false; let startPanX = 0, startPanY = 0;
+        let isDrawing = false; let isTouchZooming = false; let lastTouchDist = 0; let selectionBox = document.getElementById('selectionBox');
+        let brushCursor = document.getElementById('brushCursor'); let selectionActive = false; let selectionRect = { x: 0, y: 0, w: 0, h: 0 };
+        let selectionStart = { x: 0, y: 0 }; let undoStack = []; const MAX_UNDO = 20; let hasPickedColor = false; let lastEyedropperColor = null; 
+        let textOverlay = document.getElementById('textOverlay'); let textInner = document.getElementById('textInner');
         let textState = { visible: false, x: 0, y: 0, w: 80, h: 20, fontSize: 10, bold: false, italic: false };
-        let isTextDragging = false;
-        let isTextResizing = false;
-        let textDragStart = {x: 0, y: 0};
-        let guideX = document.getElementById('guideX');
-        let guideY = document.getElementById('guideY');
-        
-        let isTextVirtual = false; 
-        
-        let isPrecisionMode = false;
-        let eyedropperActive = false;
-        let eyedropperTargetInput = null; // 'brush' or 'text'
-        let currentActiveShader = null; 
+        let isTextDragging = false; let isTextResizing = false; let textDragStart = {x: 0, y: 0};
+        let guideX = document.getElementById('guideX'); let guideY = document.getElementById('guideY');
+        let isTextVirtual = false; let isPrecisionMode = false; let eyedropperActive = false; let eyedropperTargetInput = null;
+        let currentActiveShader = null; let lastDrawX = null; let lastDrawY = null;
 
-        // Drawing interpolation
-        let lastDrawX = null;
-        let lastDrawY = null;
-
-        const viewExtractor = document.getElementById('view-extractor');
-        const viewEditor = document.getElementById('view-editor');
-        const toolsSheet = document.getElementById('toolsSheet');
-        const canvasWrapper = document.getElementById('canvasWrapper');
-        const canvasViewport = document.getElementById('canvasViewport');
-        const headerLogoArea = document.getElementById('header-logo-area');
-        const headerEditorArea = document.getElementById('header-editor-area');
-        const headerFileName = document.getElementById('headerFileName');
-        const btnDirectEditor = document.getElementById('btnDirectEditor');
-        const quickZoomContainer = document.getElementById('quickZoomContainer');
-        const btnUndoContainer = document.getElementById('btnUndoContainer');
-        const btnApplyAll = document.getElementById('btnApplyAll');
-        const imageCounter = document.getElementById('imageCounter');
-        
-        const fabDownload = document.getElementById('fabDownload');
-        const quickScrollControls = document.getElementById('quickScrollControls');
-
+        const viewExtractor = document.getElementById('view-extractor'); const viewEditor = document.getElementById('view-editor');
+        const toolsSheet = document.getElementById('toolsSheet'); const canvasWrapper = document.getElementById('canvasWrapper');
+        const canvasViewport = document.getElementById('canvasViewport'); const headerLogoArea = document.getElementById('header-logo-area');
+        const headerEditorArea = document.getElementById('header-editor-area'); const headerFileName = document.getElementById('headerFileName');
+        const btnDirectEditor = document.getElementById('btnDirectEditor'); const quickZoomContainer = document.getElementById('quickZoomContainer');
+        const btnApplyAll = document.getElementById('btnApplyAll'); const imageCounter = document.getElementById('imageCounter');
+        const fabDownload = document.getElementById('fabDownload'); const quickScrollControls = document.getElementById('quickScrollControls');
         let overlaySyncId = null;
-		
-		// --- SISTEM RIWAYAT SHADER & KAPSUL ---
+
+        // --- RIWAYAT SHADER & KAPSUL ---
         window.appliedShadersList = [];
-        window.shaderBadgeInfo = {
-            'palette_bright': { name: 'Terang', color: 'bg-yellow-500' },
-            'palette_enhance': { name: 'Tegas', color: 'bg-blue-500' },
-            'palette_warm': { name: 'Hangat', color: 'bg-orange-500' },
-            'palette_outline': { name: 'Outline', color: 'bg-gray-600' },
-            'cartoon': { name: 'Cartoon', color: 'bg-orange-400' },
-            'retro_color': { name: 'Retro', color: 'bg-pink-500' },
-            'fxaa': { name: 'Smooth', color: 'bg-cyan-500' },
-            'shader_5xbr': { name: '5xBR', color: 'bg-purple-500' },
-            'natural': { name: 'Natural', color: 'bg-emerald-500' },
-            'grayscale': { name: 'B&W', color: 'bg-slate-500' },
-            'cool': { name: 'Cool', color: 'bg-sky-500' },
-            'smart_contrast': { name: 'Contrast', color: 'bg-indigo-500' }
-        };
-
+        window.shaderBadgeInfo = { 'palette_bright': { name: 'Terang', color: 'bg-yellow-500' }, 'palette_enhance': { name: 'Tegas', color: 'bg-blue-500' }, 'palette_warm': { name: 'Hangat', color: 'bg-orange-500' }, 'palette_outline': { name: 'Outline', color: 'bg-gray-600' }, 'cartoon': { name: 'Cartoon', color: 'bg-orange-400' }, 'retro_color': { name: 'Retro', color: 'bg-pink-500' }, 'fxaa': { name: 'Smooth', color: 'bg-cyan-500' }, 'shader_5xbr': { name: '5xBR', color: 'bg-purple-500' }, 'natural': { name: 'Natural', color: 'bg-emerald-500' }, 'grayscale': { name: 'B&W', color: 'bg-slate-500' }, 'cool': { name: 'Cool', color: 'bg-sky-500' }, 'smart_contrast': { name: 'Contrast', color: 'bg-indigo-500' } };
+        
         window.renderShaderBadges = () => {
-            const container = document.getElementById('shaderBadgesContainer');
-            if (!container) return;
-            container.innerHTML = appliedShadersList.map(type => {
-                const info = shaderBadgeInfo[type] || { name: type, color: 'bg-gray-500' };
-                return `<span class="px-2 py-0.5 text-[9px] font-bold text-white rounded-full ${info.color} shadow-sm border border-white/20 uppercase tracking-wider opacity-90">${info.name}</span>`;
-            }).join('');
+            const container = document.getElementById('shaderBadgesContainer'); if (!container) return;
+            container.innerHTML = appliedShadersList.map(type => { const info = shaderBadgeInfo[type] || { name: type, color: 'bg-gray-500' }; return `<span class="px-2 py-0.5 text-[9px] font-bold text-white rounded-full ${info.color} shadow-sm border border-white/20 uppercase tracking-wider opacity-90">${info.name}</span>`; }).join('');
         };
 
-        // FUNGSI CUSTOM CONFIRM
         window.customConfirm = (msg, onConfirm) => {
-            const modal = document.getElementById('customConfirmModal');
-            document.getElementById('confirmMessage').innerText = msg;
-            modal.classList.remove('hidden');
-
-            document.getElementById('btnConfirmOk').onclick = () => {
-                modal.classList.add('hidden');
-                onConfirm();
-            };
-            document.getElementById('btnConfirmCancel').onclick = () => {
-                modal.classList.add('hidden');
-            };
+            const modal = document.getElementById('customConfirmModal'); document.getElementById('confirmMessage').innerText = msg; modal.classList.remove('hidden');
+            document.getElementById('btnConfirmOk').onclick = () => { modal.classList.add('hidden'); onConfirm(); };
+            document.getElementById('btnConfirmCancel').onclick = () => { modal.classList.add('hidden'); };
         };
 
-        // FUNGSI RESET EDITOR (Fix Memori Tersangkut)
+        // --- CORE EDITOR NAVIGATION ---
         window.resetEditor = () => {
             if (!originalImportedImage) return;
-
-            if (currentEditorImageIndex > -1) {
-                const target = foundImages[currentEditorImageIndex];
-                if (target.draftData) delete target.draftData;
-                if (target.draftUndoStack) delete target.draftUndoStack;
-                if (target.draftText) delete target.draftText;
-                if (target.draftDims) delete target.draftDims;
-                if (target.draftBadges) delete target.draftBadges; // HAPUS KAPSUL DRAF
-            }
-
+            if (currentEditorImageIndex > -1) { const target = foundImages[currentEditorImageIndex]; if (target.draftData) delete target.draftData; if (target.draftUndoStack) delete target.draftUndoStack; if (target.draftText) delete target.draftText; if (target.draftDims) delete target.draftDims; if (target.draftBadges) delete target.draftBadges; }
             const resetCanvasUI = (img) => {
-                editorCanvas.width = img.width; editorCanvas.height = img.height;
-                document.getElementById('resizeW').value = img.width;
-                document.getElementById('resizeH').value = img.height;
-                
-                ctx.imageSmoothingEnabled = false; 
-                ctx.clearRect(0, 0, img.width, img.height); ctx.drawImage(img, 0, 0);
-                
-                originalImportedImage = document.createElement('canvas');
-                originalImportedImage.width = img.width; originalImportedImage.height = img.height;
-                originalImportedImage.getContext('2d').drawImage(img, 0, 0);
-                
-                undoStack = [];
-                document.getElementById('btnUndo').disabled = true;
-                if (typeof redoStack !== 'undefined') redoStack = [];
-                
-                appliedShadersList = [];
-                renderShaderBadges();
-                currentActiveShader = null;
-                btnApplyAll.classList.add('hidden');
-                
+                editorCanvas.width = img.width; editorCanvas.height = img.height; document.getElementById('resizeW').value = img.width; document.getElementById('resizeH').value = img.height;
+                ctx.imageSmoothingEnabled = false; ctx.clearRect(0, 0, img.width, img.height); ctx.drawImage(img, 0, 0);
+                originalImportedImage = document.createElement('canvas'); originalImportedImage.width = img.width; originalImportedImage.height = img.height; originalImportedImage.getContext('2d').drawImage(img, 0, 0);
+                undoStack = []; document.getElementById('btnUndo').disabled = true; appliedShadersList = []; renderShaderBadges(); currentActiveShader = null; btnApplyAll.classList.add('hidden');
                 showNotification("Gambar di-reset bersih!", "success");
             };
-
-            if (currentEditorImageIndex > -1) {
-                const img = new Image();
-                img.onload = () => resetCanvasUI(img);
-                img.src = foundImages[currentEditorImageIndex].url;
-            } else {
-                resetCanvasUI(originalImportedImage);
-            }
+            if (currentEditorImageIndex > -1) { const img = new Image(); img.onload = () => resetCanvasUI(img); img.src = foundImages[currentEditorImageIndex].url; } else { resetCanvasUI(originalImportedImage); }
         };
 
-        // FUNGSI NAVIGASI (Menyimpan Kapsul ke Memori Masing-masing Gambar)
         window.navigateEditor = (direction) => {
-            if (foundImages.length === 0 || isImportedImage) {
-                showNotification("Navigasi tidak tersedia (Import/Kosong)", "error"); return;
-            }
-            
+            if (foundImages.length === 0 || isImportedImage) { showNotification("Navigasi tidak tersedia", "error"); return; }
             if(currentEditorImageIndex > -1) {
-                const img = foundImages[currentEditorImageIndex];
-                img.draftData = ctx.getImageData(0,0,editorCanvas.width, editorCanvas.height);
-                img.draftDims = {w: editorCanvas.width, h: editorCanvas.height};
-                img.draftUndoStack = [...undoStack]; 
-                img.draftBadges = [...appliedShadersList]; // SIMPAN KAPSUL LOKAL
-                
-                if(textState.visible || isTextVirtual) {
-                    img.draftText = {
-                        state: JSON.parse(JSON.stringify(textState)), content: textInner.innerText,
-                        colors: {
-                             text: document.getElementById('textColorPicker').value, outline: document.getElementById('outlineColorPicker').value,
-                             outlineSize: document.getElementById('outlineSizeSlider').value, hasOutline: document.getElementById('outlineCheck').checked
-                        }
-                    };
-                }
+                const img = foundImages[currentEditorImageIndex]; img.draftData = ctx.getImageData(0,0,editorCanvas.width, editorCanvas.height); img.draftDims = {w: editorCanvas.width, h: editorCanvas.height}; img.draftUndoStack = [...undoStack]; img.draftBadges = [...appliedShadersList]; 
+                if(textState.visible || isTextVirtual) { img.draftText = { state: JSON.parse(JSON.stringify(textState)), content: textInner.innerText, colors: { text: document.getElementById('textColorPicker').value, outline: document.getElementById('outlineColorPicker').value, outlineSize: document.getElementById('outlineSizeSlider').value, hasOutline: document.getElementById('outlineCheck').checked } }; }
             }
-
-            const isMenuOpen = !toolsSheet.classList.contains('translate-y-full');
-            let activeTab = 'file'; 
-            if(document.getElementById('menu-brush').classList.contains('menu-btn-active')) activeTab = 'brush';
-            if(document.getElementById('menu-eraser').classList.contains('menu-btn-active')) activeTab = 'eraser';
-            if(document.getElementById('menu-text').classList.contains('menu-btn-active')) activeTab = 'text';
-
-            let nextIndex = currentEditorImageIndex + direction;
-            if (nextIndex >= foundImages.length) nextIndex = 0;
-            if (nextIndex < 0) nextIndex = foundImages.length - 1;
-            
-            loadToEditor(nextIndex);
-
-            if(isMenuOpen) {
-                toggleTools(false); openSubMenu(activeTab);
-            }
+            const isMenuOpen = !toolsSheet.classList.contains('translate-y-full'); let activeTab = 'file'; 
+            if(document.getElementById('menu-brush').classList.contains('menu-btn-active')) activeTab = 'brush'; if(document.getElementById('menu-eraser').classList.contains('menu-btn-active')) activeTab = 'eraser'; if(document.getElementById('menu-text').classList.contains('menu-btn-active')) activeTab = 'text';
+            let nextIndex = currentEditorImageIndex + direction; if (nextIndex >= foundImages.length) nextIndex = 0; if (nextIndex < 0) nextIndex = foundImages.length - 1;
+            loadToEditor(nextIndex); if(isMenuOpen) { toggleTools(false); openSubMenu(activeTab); }
         };
 
-        // FUNGSI LOAD EDITOR (Memuat Kapsul Milik Gambar Saja)
         window.loadToEditor = (index) => {
-            fullEditorReset(); 
-            const imgData = foundImages[index]; 
-            currentEditorImageIndex = index;
-            isImportedImage = false; 
-            updateFloatingControls();
-            document.getElementById('enhancementPanel').classList.remove('hidden');
-            imageCounter.innerText = `${index + 1} / ${foundImages.length}`;
-            
+            fullEditorReset(); const imgData = foundImages[index]; currentEditorImageIndex = index; isImportedImage = false; updateFloatingControls(); document.getElementById('enhancementPanel').classList.remove('hidden'); imageCounter.innerText = `${index + 1} / ${foundImages.length}`;
             if(imgData.draftData) {
-                editorCanvas.width = imgData.draftDims.w; editorCanvas.height = imgData.draftDims.h;
-                ctx.putImageData(imgData.draftData, 0, 0);
-                
-                if(imgData.draftUndoStack && imgData.draftUndoStack.length > 0) {
-                     undoStack = [...imgData.draftUndoStack];
-                     document.getElementById('btnUndo').disabled = false;
-                }
-                
-                // MUAT KAPSUL LOKAL!
-                appliedShadersList = imgData.draftBadges ? [...imgData.draftBadges] : [];
-                renderShaderBadges();
-                if(appliedShadersList.length > 0) {
-                    currentActiveShader = appliedShadersList[appliedShadersList.length - 1];
-                    btnApplyAll.classList.remove('hidden');
-                }
-
+                editorCanvas.width = imgData.draftDims.w; editorCanvas.height = imgData.draftDims.h; ctx.putImageData(imgData.draftData, 0, 0);
+                if(imgData.draftUndoStack && imgData.draftUndoStack.length > 0) { undoStack = [...imgData.draftUndoStack]; document.getElementById('btnUndo').disabled = false; }
+                appliedShadersList = imgData.draftBadges ? [...imgData.draftBadges] : []; renderShaderBadges();
+                if(appliedShadersList.length > 0) { currentActiveShader = appliedShadersList[appliedShadersList.length - 1]; btnApplyAll.classList.remove('hidden'); }
                 const img = new Image();
                 img.onload = () => {
-                    originalImportedImage = document.createElement('canvas');
-                    originalImportedImage.width = img.width; originalImportedImage.height = img.height;
-                    originalImportedImage.getContext('2d').drawImage(img, 0, 0);
-                    
-                    if(imgData.draftText) {
-                        textState = imgData.draftText.state; textInner.innerText = imgData.draftText.content;
-                        if(imgData.draftText.colors) {
-                             document.getElementById('textColorPicker').value = imgData.draftText.colors.text;
-                             document.getElementById('outlineColorPicker').value = imgData.draftText.colors.outline;
-                             document.getElementById('outlineSizeSlider').value = imgData.draftText.colors.outlineSize;
-                             document.getElementById('outlineCheck').checked = imgData.draftText.colors.hasOutline;
-                             updateTextStyle();
-                        }
-                        toggleTextVisibility(true); document.getElementById('textVisibleToggle').checked = true;
-                        openSubMenu('text'); syncTextOverlayVisuals();
-                    }
-                };
-                img.src = imgData.url;
-
-                headerFileName.innerText = imgData.name + ` (${imgData.draftDims.w}x${imgData.draftDims.h})*`;
-                document.getElementById('resizeW').value = imgData.draftDims.w; document.getElementById('resizeH').value = imgData.draftDims.h;
-                switchView('editor'); 
-                
-                const viewport = document.getElementById('canvasViewport');
-                let fitScale = Math.min((viewport.clientWidth - 40) / imgData.draftDims.w, (viewport.clientHeight - 80) / imgData.draftDims.h);
-                fitScale = Math.min(fitScale, 2.0); fitScale = Math.max(fitScale, 0.1);
-                pannedX = 0; pannedY = 0; applyZoom(fitScale);
-                return;
+                    originalImportedImage = document.createElement('canvas'); originalImportedImage.width = img.width; originalImportedImage.height = img.height; originalImportedImage.getContext('2d').drawImage(img, 0, 0);
+                    if(imgData.draftText) { textState = imgData.draftText.state; textInner.innerText = imgData.draftText.content; if(imgData.draftText.colors) { document.getElementById('textColorPicker').value = imgData.draftText.colors.text; document.getElementById('outlineColorPicker').value = imgData.draftText.colors.outline; document.getElementById('outlineSizeSlider').value = imgData.draftText.colors.outlineSize; document.getElementById('outlineCheck').checked = imgData.draftText.colors.hasOutline; updateTextStyle(); } toggleTextVisibility(true); document.getElementById('textVisibleToggle').checked = true; openSubMenu('text'); syncTextOverlayVisuals(); }
+                }; img.src = imgData.url;
+                headerFileName.innerText = imgData.name + ` (${imgData.draftDims.w}x${imgData.draftDims.h})*`; document.getElementById('resizeW').value = imgData.draftDims.w; document.getElementById('resizeH').value = imgData.draftDims.h; switchView('editor'); 
+                let fitScale = Math.min((canvasViewport.clientWidth - 40) / imgData.draftDims.w, (canvasViewport.clientHeight - 80) / imgData.draftDims.h); fitScale = Math.max(0.1, Math.min(fitScale, 2.0)); pannedX = 0; pannedY = 0; applyZoom(fitScale); return;
             }
-
-            // GAMBAR BARU (BELUM ADA DRAF)
-            appliedShadersList = [];
-            renderShaderBadges();
-            currentActiveShader = null;
-            btnApplyAll.classList.add('hidden');
-
+            appliedShadersList = []; renderShaderBadges(); currentActiveShader = null; btnApplyAll.classList.add('hidden');
             const img = new Image();
             img.onload = () => {
-                editorCanvas.width = img.width; editorCanvas.height = img.height;
-                ctx.imageSmoothingEnabled = false; 
-                ctx.clearRect(0,0,img.width, img.height); ctx.drawImage(img, 0, 0);
-                originalImportedImage = document.createElement('canvas'); 
-                originalImportedImage.width = img.width; originalImportedImage.height = img.height; 
-                originalImportedImage.getContext('2d').drawImage(img, 0, 0);
-                
-                headerFileName.innerText = imgData.name + ` (${img.width}x${img.height})`;
-                document.getElementById('resizeW').value = img.width; document.getElementById('resizeH').value = img.height;
-                switchView('editor'); 
-                
-                const viewport = document.getElementById('canvasViewport');
-                let fitScale = Math.min((viewport.clientWidth - 40) / img.width, (viewport.clientHeight - 40) / img.height);
-                fitScale = Math.min(fitScale, 2.0); fitScale = Math.max(fitScale, 0.1);
-                fitScale = Math.floor(fitScale * 10) / 10; if(fitScale === 0) fitScale = 0.1;
-                
-                pannedX = 0; pannedY = 0; applyZoom(fitScale);
-            };
-            img.src = imgData.url;
+                editorCanvas.width = img.width; editorCanvas.height = img.height; ctx.imageSmoothingEnabled = false; ctx.clearRect(0,0,img.width, img.height); ctx.drawImage(img, 0, 0);
+                originalImportedImage = document.createElement('canvas'); originalImportedImage.width = img.width; originalImportedImage.height = img.height; originalImportedImage.getContext('2d').drawImage(img, 0, 0);
+                headerFileName.innerText = imgData.name + ` (${img.width}x${img.height})`; document.getElementById('resizeW').value = img.width; document.getElementById('resizeH').value = img.height; switchView('editor'); 
+                let fitScale = Math.min((canvasViewport.clientWidth - 40) / img.width, (canvasViewport.clientHeight - 40) / img.height); fitScale = Math.max(0.1, Math.min(fitScale, 2.0)); pannedX = 0; pannedY = 0; applyZoom(fitScale);
+            }; img.src = imgData.url;
         }
 
-        
-        // --- BACK BUTTON LOGIC ---
-        let backPressTimer = null;
-        window.history.pushState(null, null, window.location.href);
-        window.addEventListener('popstate', (event) => {
-            if(!viewEditor.classList.contains('translate-x-full')) {
-                window.history.pushState(null, null, window.location.href); 
-                closeEditor();
-                return;
-            }
-            if (backPressTimer) {
-            } else {
-                window.history.pushState(null, null, window.location.href); 
-                showNotification("Tekan 'Kembali' sekali lagi untuk keluar", "warning");
-                backPressTimer = setTimeout(() => { backPressTimer = null; }, 2000); 
-            }
-        });
-
-        // --- SCROLL HIDE/SHOW LOGIC ---
-        let lastScrollTop = 0;
-        viewExtractor.addEventListener('scroll', () => {
-             const st = viewExtractor.scrollTop;
-             if(st > lastScrollTop && st > 50) {
-                 fabDownload.classList.add('fab-hidden-center');
-                 quickScrollControls.classList.add('nav-hidden-vertical');
-             } else {
-                 fabDownload.classList.remove('fab-hidden-center');
-                 quickScrollControls.classList.remove('nav-hidden-vertical');
-             }
-             lastScrollTop = st;
-        });
-
+        // --- UI VIEWS ---
         function switchView(view) {
-            // FIX: Don't auto toggle tools here for Editor, handled manually in loadToEditor
-            if (view === 'editor') {
-                viewEditor.classList.remove('translate-x-full');
-                fabDownload.classList.add('hidden'); 
-                quickScrollControls.classList.add('hidden');
-                headerLogoArea.classList.add('hidden');
-                headerEditorArea.classList.remove('hidden');
-                btnDirectEditor.classList.add('hidden');
-            } else {
-                // When going BACK to extractor
-                toggleTools(true); // Close tools
-                viewEditor.classList.add('translate-x-full');
-                if(foundImages.length > 0) {
-                    fabDownload.classList.remove('hidden');
-                    quickScrollControls.classList.remove('hidden');
-                }
-                headerLogoArea.classList.remove('hidden');
-                headerEditorArea.classList.add('hidden');
-                btnDirectEditor.classList.remove('hidden');
-                toggleTextVisibility(false);
-                btnApplyAll.classList.add('hidden'); 
-                currentActiveShader = null;
-
-                // AUTO SCROLL TO LAST EDITED
-                if(currentEditorImageIndex > -1) {
-                    setTimeout(() => {
-                        const el = document.getElementById(`img-card-${currentEditorImageIndex}`);
-                        if(el) el.scrollIntoView({block: 'center', behavior: 'smooth'});
-                    }, 100);
-                }
+            if (view === 'editor') { viewEditor.classList.remove('translate-x-full'); fabDownload.classList.add('hidden'); quickScrollControls.classList.add('hidden'); headerLogoArea.classList.add('hidden'); headerEditorArea.classList.remove('hidden'); btnDirectEditor.classList.add('hidden'); } 
+            else {
+                toggleTools(true); viewEditor.classList.add('translate-x-full');
+                if(foundImages.length > 0) { fabDownload.classList.remove('hidden'); quickScrollControls.classList.remove('hidden'); }
+                headerLogoArea.classList.remove('hidden'); headerEditorArea.classList.add('hidden'); btnDirectEditor.classList.remove('hidden'); toggleTextVisibility(false); btnApplyAll.classList.add('hidden'); currentActiveShader = null;
+                if(currentEditorImageIndex > -1) { setTimeout(() => { const el = document.getElementById(`img-card-${currentEditorImageIndex}`); if(el) el.scrollIntoView({block: 'center', behavior: 'smooth'}); }, 100); }
             }
         }
         
-        window.closeEditor = () => {
-            if (foundImages.length > 0) {
-                foundImages.forEach(img => {
-                    // Wipe temporary editor state unless it was committed via 'Inject'
-                    if (img.draftData) delete img.draftData;
-                    if (img.draftDims) delete img.draftDims;
-                    if (img.draftText) delete img.draftText;
-                    if (img.draftUndoStack) delete img.draftUndoStack;
-                });
-                renderList(); // FIX: Re-render list to ensure thumbnails reflect SAVED state, not discarded drafts
-            }
-            switchView('extractor');
-        };
-        
-        window.toggleTools = (forceClose = false) => {
-            const isClosed = toolsSheet.classList.contains('translate-y-full');
-            if (forceClose || !isClosed) {
-                toolsSheet.classList.add('translate-y-full');
-                canvasViewport.style.paddingBottom = '0'; 
-                quickZoomContainer.classList.remove('hidden-behind');
-            } else {
-                toolsSheet.classList.remove('translate-y-full');
-                canvasViewport.style.paddingBottom = '240px'; 
-                quickZoomContainer.classList.add('hidden-behind');
-            }
-        };
-
-        function resetToolStates() {
-            document.getElementById('brushActiveToggle').checked = false;
-            document.getElementById('eraserActiveToggle').checked = false;
-            document.getElementById('precisionBrushToggle').checked = false;
-            document.getElementById('precisionEraserToggle').checked = false;
-            isPrecisionMode = false;
-            canvasViewport.classList.remove('cursor-crosshair');
-            setTool('none');
-            disableEyedropper();
-            brushCursor.style.display = 'none';
-        }
-        
-        window.openSubMenu = (menuName) => {
-            resetToolStates();
-            ['file', 'brush', 'eraser', 'text'].forEach(m => {
-                document.getElementById('menu-' + m).classList.remove('menu-btn-active');
-                document.getElementById('menu-' + m).classList.add('bg-slate-800', 'text-slate-400');
-                document.getElementById('panel-' + m).classList.add('hidden');
-            });
-            document.getElementById('panel-empty').classList.add('hidden');
-            document.getElementById('panel-' + menuName).classList.remove('hidden');
-            const activeBtn = document.getElementById('menu-' + menuName);
-            activeBtn.classList.remove('bg-slate-800', 'text-slate-400');
-            activeBtn.classList.add('menu-btn-active');
-            
-            if(menuName === 'text' && isTextVirtual) {
-                isTextVirtual = false;
-                textOverlay.classList.remove('locked-mode');
-                showNotification("Mode Edit Teks Kembali Aktif", "info");
-            }
-            if (toolsSheet.classList.contains('translate-y-full')) { toggleTools(); }
-        };
-        
+        window.closeEditor = () => { if (foundImages.length > 0) { foundImages.forEach(img => { if (img.draftData) delete img.draftData; if (img.draftDims) delete img.draftDims; if (img.draftText) delete img.draftText; if (img.draftUndoStack) delete img.draftUndoStack; }); renderList(); } switchView('extractor'); };
+        window.toggleTools = (forceClose = false) => { const isClosed = toolsSheet.classList.contains('translate-y-full'); if (forceClose || !isClosed) { toolsSheet.classList.add('translate-y-full'); canvasViewport.style.paddingBottom = '0'; quickZoomContainer.classList.remove('hidden-behind'); } else { toolsSheet.classList.remove('translate-y-full'); canvasViewport.style.paddingBottom = '240px'; quickZoomContainer.classList.add('hidden-behind'); } };
+        function resetToolStates() { document.getElementById('brushActiveToggle').checked = false; document.getElementById('eraserActiveToggle').checked = false; document.getElementById('precisionBrushToggle').checked = false; document.getElementById('precisionEraserToggle').checked = false; isPrecisionMode = false; canvasViewport.classList.remove('cursor-crosshair'); setTool('none'); disableEyedropper(); brushCursor.style.display = 'none'; }
+        window.openSubMenu = (menuName) => { resetToolStates(); ['file', 'brush', 'eraser', 'text'].forEach(m => { document.getElementById('menu-' + m).classList.remove('menu-btn-active'); document.getElementById('menu-' + m).classList.add('bg-slate-800', 'text-slate-400'); document.getElementById('panel-' + m).classList.add('hidden'); }); document.getElementById('panel-empty').classList.add('hidden'); document.getElementById('panel-' + menuName).classList.remove('hidden'); document.getElementById('menu-' + menuName).classList.remove('bg-slate-800', 'text-slate-400'); document.getElementById('menu-' + menuName).classList.add('menu-btn-active'); if(menuName === 'text' && isTextVirtual) { isTextVirtual = false; textOverlay.classList.remove('locked-mode'); showNotification("Mode Edit Teks Aktif", "info"); } if (toolsSheet.classList.contains('translate-y-full')) { toggleTools(); } };
         window.scrollToTop = () => { viewExtractor.scrollTo({ top: 0, behavior: 'smooth' }); };
         window.scrollToBottom = () => { viewExtractor.scrollTo({ top: viewExtractor.scrollHeight, behavior: 'smooth' }); };
+        function updateFloatingControls() { const btnInject = document.getElementById('btnInject'); if(isImportedImage) { btnInject.classList.add('btn-disabled'); btnInject.classList.remove('animate-pulse-slow'); } else { btnInject.classList.remove('btn-disabled'); btnInject.classList.add('animate-pulse-slow'); } }
 
-        document.getElementById('fileInput').addEventListener('change', handleFileSelect);
-        document.getElementById('manualEditorLoad').addEventListener('change', handleManualEditorLoad);
-        document.getElementById('zoomSlider').addEventListener('input', (e) => {
-            applyZoom(parseFloat(e.target.value));
-        });
-
-        function updateFloatingControls() {
-            const btnInject = document.getElementById('btnInject');
-            if(isImportedImage) {
-                btnInject.classList.add('btn-disabled');
-                btnInject.classList.remove('animate-pulse-slow');
-            } else {
-                btnInject.classList.remove('btn-disabled');
-                btnInject.classList.add('animate-pulse-slow');
-            }
-        }
+        let backPressTimer = null; window.history.pushState(null, null, window.location.href);
+        window.addEventListener('popstate', (event) => { if(!viewEditor.classList.contains('translate-x-full')) { window.history.pushState(null, null, window.location.href); closeEditor(); return; } if (backPressTimer) {} else { window.history.pushState(null, null, window.location.href); showNotification("Tekan 'Kembali' sekali lagi untuk keluar", "warning"); backPressTimer = setTimeout(() => { backPressTimer = null; }, 2000); } });
+        let lastScrollTop = 0; viewExtractor.addEventListener('scroll', () => { const st = viewExtractor.scrollTop; if(st > lastScrollTop && st > 50) { fabDownload.classList.add('fab-hidden-center'); quickScrollControls.classList.add('nav-hidden-vertical'); } else { fabDownload.classList.remove('fab-hidden-center'); quickScrollControls.classList.remove('nav-hidden-vertical'); } lastScrollTop = st; });
 
         // --- CORE SCANNER LOGIC ---
-        const PNG_SIG_LOOSE = [0x89, 0x50, 0x4E, 0x47];
-        const ZIP_SIG = [0x50, 0x4B, 0x03, 0x04]; 
-
+        const PNG_SIG_LOOSE = [0x89, 0x50, 0x4E, 0x47]; const ZIP_SIG = [0x50, 0x4B, 0x03, 0x04]; 
         async function handleFileSelect(event) {
-            const file = event.target.files[0]; if (!file) return;
-            originalFileName = file.name; 
-            document.getElementById('fileNameDisplay').innerText = file.name;
-            document.getElementById('loadingOverlay').classList.remove('hidden');
-            document.getElementById('loadingStatus').innerText = "Membuka Struktur File...";
-
+            const file = event.target.files[0]; if (!file) return; originalFileName = file.name; document.getElementById('fileNameDisplay').innerText = file.name;
+            document.getElementById('loadingOverlay').classList.remove('hidden'); document.getElementById('loadingStatus').innerText = "Membuka Struktur File...";
             try {
-                const buffer = await file.arrayBuffer();
-                originalFileBytes = new Uint8Array(buffer);
-                originalZipData = null; 
-                originalZipFiles = {};
-                
-                if (checkSequence(originalFileBytes, 0, ZIP_SIG)) {
-                    document.getElementById('loadingStatus').innerText = "Analisis Arsip ZIP/JAR...";
-                    const zip = await JSZip.loadAsync(buffer);
-                    originalZipData = zip;
-                    await scanZipContents(zip);
-                } else {
-                    document.getElementById('loadingStatus').innerText = "Deep Scan Binary Raw...";
-                    scanRawBytes(originalFileBytes, originalFileName);
-                }
-            } catch (e) {
-                document.getElementById('loadingOverlay').classList.add('hidden');
-                showNotification("Gagal membaca file: " + e.message, "error");
-            }
+                const buffer = await file.arrayBuffer(); originalFileBytes = new Uint8Array(buffer); originalZipData = null; originalZipFiles = {};
+                if (checkSequence(originalFileBytes, 0, ZIP_SIG)) { document.getElementById('loadingStatus').innerText = "Analisis Arsip ZIP/JAR..."; const zip = await JSZip.loadAsync(buffer); originalZipData = zip; await scanZipContents(zip); } 
+                else { document.getElementById('loadingStatus').innerText = "Deep Scan Binary Raw..."; scanRawBytes(originalFileBytes, originalFileName); }
+            } catch (e) { document.getElementById('loadingOverlay').classList.add('hidden'); showNotification("Gagal membaca file", "error"); }
         }
 
         async function scanZipContents(zip) {
-            foundImages = [];
-            const filePromises = [];
-            zip.forEach((relativePath, zipEntry) => {
-                if (!zipEntry.dir) {
-                    filePromises.push(
-                        zipEntry.async("uint8array").then(data => {
-                            originalZipFiles[relativePath] = data; 
-                            scanBytesForPngs(data, relativePath);
-                        })
-                    );
-                }
-            });
-            await Promise.all(filePromises);
-            finalizeScan();
+            foundImages = []; const filePromises = [];
+            zip.forEach((relativePath, zipEntry) => { if (!zipEntry.dir) { filePromises.push( zipEntry.async("uint8array").then(data => { originalZipFiles[relativePath] = data; scanBytesForPngs(data, relativePath); }) ); } });
+            await Promise.all(filePromises); finalizeScan();
         }
-
-        function scanRawBytes(bytes, filename) {
-            foundImages = [];
-            scanBytesForPngs(bytes, filename);
-            finalizeScan();
-        }
+        function scanRawBytes(bytes, filename) { foundImages = []; scanBytesForPngs(bytes, filename); finalizeScan(); }
 
         function scanBytesForPngs(bytes, sourcePath) {
             let i = 0; const len = bytes.length; let foundCount = 0;
             while (i < len - 8) {
                 if (bytes[i] === 0x89 && bytes[i+1] === 0x50 && bytes[i+2] === 0x4E && bytes[i+3] === 0x47) {
-                    let ptr = i + 8; 
-                    let isValidStructure = false;
+                    let ptr = i + 8; let isValidStructure = false;
                     while (ptr < len) {
                         if (ptr + 8 > len) break; 
                         const chunkLen = (bytes[ptr] << 24) | (bytes[ptr+1] << 16) | (bytes[ptr+2] << 8) | bytes[ptr+3];
-                        if (chunkLen < 0) break; 
-                        const nextPtr = ptr + 12 + chunkLen;
-                        if (nextPtr > len) { break; }
-                        if (bytes[ptr+4] === 0x49 && bytes[ptr+5] === 0x45 && bytes[ptr+6] === 0x4E && bytes[ptr+7] === 0x44) {
-                            isValidStructure = true; ptr = nextPtr; break; 
-                        }
-                        ptr = nextPtr;
+                        if (chunkLen < 0) break; const nextPtr = ptr + 12 + chunkLen; if (nextPtr > len) break;
+                        if (bytes[ptr+4] === 0x49 && bytes[ptr+5] === 0x45 && bytes[ptr+6] === 0x4E && bytes[ptr+7] === 0x44) { isValidStructure = true; ptr = nextPtr; break; } ptr = nextPtr;
                     }
                     const pngSize = ptr - i;
                     if (pngSize > 8) {
-                        const pngData = bytes.slice(i, ptr);
-                        const blob = new Blob([pngData], { type: 'image/png' });
-                        const url = URL.createObjectURL(blob);
-                        const isTrulyStandalone = (i === 0 && ptr >= len);
-                        let name = sourcePath.split('/').pop();
-                        if (foundCount > 0 || !isTrulyStandalone) { name = `${name}_${foundCount}`; }
-                        if (!name.toLowerCase().endsWith('.png') && !name.includes('.')) { name = name + ".png"; }
-
-                        foundImages.push({
-                            index: 0, name: name, path: sourcePath + (isTrulyStandalone ? "" : ` [Part ${foundCount}]`), 
-                            blob: blob, url: url, size: pngSize, originalData: pngData, 
-                            modifiedData: null, modified: false, isBatch: false, 
-                            isHidden: !isTrulyStandalone, sourceFile: sourcePath, offset: i, length: pngSize, isStandalone: isTrulyStandalone
-                        });
+                        const pngData = bytes.slice(i, ptr); const blob = new Blob([pngData], { type: 'image/png' }); const url = URL.createObjectURL(blob);
+                        const isTrulyStandalone = (i === 0 && ptr >= len); let name = sourcePath.split('/').pop();
+                        if (foundCount > 0 || !isTrulyStandalone) { name = `${name}_${foundCount}`; } if (!name.toLowerCase().endsWith('.png') && !name.includes('.')) { name = name + ".png"; }
+                        foundImages.push({ index: 0, name: name, path: sourcePath + (isTrulyStandalone ? "" : ` [Part ${foundCount}]`), blob: blob, url: url, size: pngSize, originalData: pngData, modifiedData: null, modified: false, isBatch: false, isHidden: !isTrulyStandalone, sourceFile: sourcePath, offset: i, length: pngSize, isStandalone: isTrulyStandalone });
                         foundCount++; i = ptr; continue;
                     }
-                }
-                i++;
+                } i++;
             }
         }
 
         function finalizeScan() {
-            foundImages.sort((a, b) => {
-                if (a.isHidden === b.isHidden) return 0;
-                return a.isHidden ? -1 : 1;
-            });
-            foundImages.forEach((img, idx) => img.index = idx);
-            document.getElementById('loadingOverlay').classList.add('hidden');
-            document.getElementById('statsBar').classList.remove('hidden'); document.getElementById('statsBar').classList.add('flex');
-            document.getElementById('countDisplay').innerText = `${foundImages.length} Aset`;
-            if(foundImages.length > 0) {
-                fabDownload.classList.remove('hidden');
-                quickScrollControls.classList.remove('hidden');
-            } else {
-                fabDownload.classList.add('hidden');
-                quickScrollControls.classList.add('hidden');
-            }
-            renderList();
-            showNotification(`Smart Scan: ${foundImages.length} aset ditemukan!`, "success");
+            foundImages.sort((a, b) => { if (a.isHidden === b.isHidden) return 0; return a.isHidden ? -1 : 1; });
+            foundImages.forEach((img, idx) => img.index = idx); document.getElementById('loadingOverlay').classList.add('hidden');
+            document.getElementById('statsBar').classList.remove('hidden'); document.getElementById('statsBar').classList.add('flex'); document.getElementById('countDisplay').innerText = `${foundImages.length} Aset`;
+            if(foundImages.length > 0) { fabDownload.classList.remove('hidden'); quickScrollControls.classList.remove('hidden'); } else { fabDownload.classList.add('hidden'); quickScrollControls.classList.add('hidden'); }
+            renderList(); showNotification(`Smart Scan: ${foundImages.length} aset ditemukan!`, "success");
         }
 
         function renderList() {
             const container = document.getElementById('imagesContainer');
-            if(foundImages.length === 0) { 
-                container.innerHTML = `<div id="emptyState" class="text-center py-12 opacity-40 flex flex-col items-center"><i class="fa-solid fa-ghost text-4xl mb-3 text-slate-600"></i><p class="text-sm text-slate-500">Zonk! Tidak ada gambar.</p></div>`; 
-                return; 
-            }
+            if(foundImages.length === 0) { container.innerHTML = `<div id="emptyState" class="text-center py-12 opacity-40 flex flex-col items-center"><i class="fa-solid fa-ghost text-4xl mb-3 text-slate-600"></i><p class="text-sm text-slate-500">Zonk! Tidak ada gambar.</p></div>`; return; }
             container.innerHTML = '';
             foundImages.forEach((img, idx) => {
-                const el = document.createElement('div');
-                el.id = `img-card-${idx}`; // ADDED ID for scrolling
-                let borderClass = 'border-slate-800';
-                
-                let wrapperClick = `onclick="loadToEditor(${idx})" style="cursor: pointer;"`;
-                let hint = '';
-                
+                const el = document.createElement('div'); el.id = `img-card-${idx}`; let borderClass = 'border-slate-800'; let hint = '';
                 if(img.modified) {
-                    if (img.isBatch) {
-                        borderClass = 'border-purple-500/50 shadow-[0_0_15px_rgba(147,51,234,0.1)]';
-                        hint += `<div class="absolute bottom-0 right-0 grad-purple-batch text-white text-[8px] px-1.5 font-bold rounded-tl-md pointer-events-none shadow-sm flex items-center gap-1"><i class="fa-solid fa-layer-group"></i></div>`;
-                    } else {
-                        borderClass = 'border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]';
-                        hint += `<div class="absolute bottom-0 right-0 grad-emerald text-white text-[8px] px-1 font-bold rounded-tl-md pointer-events-none shadow-sm"><i class="fa-solid fa-check"></i></div>`;
-                    }
+                    if (img.isBatch) { borderClass = 'border-purple-500/50 shadow-[0_0_15px_rgba(147,51,234,0.1)]'; hint += `<div class="absolute bottom-0 right-0 grad-purple-batch text-white text-[8px] px-1.5 font-bold rounded-tl-md pointer-events-none shadow-sm flex items-center gap-1"><i class="fa-solid fa-layer-group"></i></div>`; } 
+                    else { borderClass = 'border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]'; hint += `<div class="absolute bottom-0 right-0 grad-emerald text-white text-[8px] px-1 font-bold rounded-tl-md pointer-events-none shadow-sm"><i class="fa-solid fa-check"></i></div>`; }
                 }
-                if(img.isHidden) {
-                     const isTitle = img.sourceFile.includes('title');
-                     const color = isTitle ? 'bg-purple-600/90' : 'bg-amber-600/90';
-                     const icon = isTitle ? 'fa-puzzle-piece' : 'fa-mask';
-                     hint += `<div class="absolute top-0 left-0 ${color} text-white text-[8px] px-1.5 py-0.5 font-bold rounded-br-md pointer-events-none shadow-sm flex items-center gap-1"><i class="fa-solid ${icon}"></i> ${isTitle ? 'PART' : 'EMBED'}</div>`;
-                }
-
+                if(img.isHidden) { const isTitle = img.sourceFile.includes('title'); const color = isTitle ? 'bg-purple-600/90' : 'bg-amber-600/90'; const icon = isTitle ? 'fa-puzzle-piece' : 'fa-mask'; hint += `<div class="absolute top-0 left-0 ${color} text-white text-[8px] px-1.5 py-0.5 font-bold rounded-br-md pointer-events-none shadow-sm flex items-center gap-1"><i class="fa-solid ${icon}"></i> ${isTitle ? 'PART' : 'EMBED'}</div>`; }
                 let sourceInfo = img.isHidden ? `<span class="text-[9px] text-amber-500/80 block truncate font-mono"><i class="fa-solid fa-box-archive mr-1"></i>${img.sourceFile} @${img.offset}</span>` : `<span class="text-[9px] text-slate-600 block truncate font-mono">${img.path}</span>`;
-                
-                let actionBtn = img.modified ? 
-                    `<button onclick="revertImage(${idx})" class="w-full px-2 py-1.5 bg-red-900/30 border border-red-600/30 text-red-400 hover:bg-red-900/50 rounded text-[9px] font-bold transition">RESET</button>` : 
-                    (img.modifiedData ? `<button onclick="restoreModifiedImage(${idx})" class="w-full px-2 py-1.5 bg-purple-900/30 border border-purple-600/30 text-purple-400 hover:bg-purple-900/50 rounded text-[9px] font-bold transition">PERBAIKI</button>` : `<div class="h-[25px]"></div>`);
-                
+                let actionBtn = img.modified ? `<button onclick="revertImage(${idx})" class="w-full px-2 py-1.5 bg-red-900/30 border border-red-600/30 text-red-400 hover:bg-red-900/50 rounded text-[9px] font-bold transition">RESET</button>` : (img.modifiedData ? `<button onclick="restoreModifiedImage(${idx})" class="w-full px-2 py-1.5 bg-purple-900/30 border border-purple-600/30 text-purple-400 hover:bg-purple-900/50 rounded text-[9px] font-bold transition">PERBAIKI</button>` : `<div class="h-[25px]"></div>`);
                 el.className = `flex items-center gap-3 p-3 rounded-xl bg-slate-900 border ${borderClass} active:scale-[0.99] transition`;
-                // ADDED NUMBER INDEX
                 el.innerHTML = `
-                    <div ${wrapperClick} class="w-14 h-14 shrink-0 bg-[#0f172a] checker-bg rounded-lg flex items-center justify-center p-1 border border-slate-700/50 overflow-hidden relative shadow-inner hover:border-amber-500/50 transition-colors">
-                        <img src="${img.url}" class="max-w-full max-h-full object-contain pixelated">
-                        ${hint}
+                    <div onclick="loadToEditor(${idx})" style="cursor: pointer;" class="w-14 h-14 shrink-0 bg-[#0f172a] checker-bg rounded-lg flex items-center justify-center p-1 border border-slate-700/50 overflow-hidden relative shadow-inner hover:border-amber-500/50 transition-colors">
+                        <img src="${img.url}" class="max-w-full max-h-full object-contain pixelated">${hint}
                     </div>
                     <div class="flex-1 min-w-0 pr-2" onclick="loadToEditor(${idx})">
                         <h4 class="font-bold text-xs text-slate-200 truncate"><span class="text-amber-500/80 mr-1">#${idx + 1}</span> ${img.name}</h4>
-                        <p class="text-[10px] text-slate-500 font-mono mt-0.5">${img.size} B</p>
-                        ${sourceInfo}
+                        <p class="text-[10px] text-slate-500 font-mono mt-0.5">${img.size} B</p>${sourceInfo}
                     </div>
                     <div class="flex flex-col gap-1.5 w-[70px]">
                         <input type="file" id="manualInject_${idx}" accept="image/*" class="hidden" onchange="handleManualInjection(event, ${idx})">
-                        <button onclick="document.getElementById('manualInject_${idx}').click()" class="w-full py-1.5 flex items-center justify-center grad-emerald hover:brightness-110 border border-emerald-500/20 text-white rounded text-[9px] shadow active:scale-95 transition">
-                            <i class="fa-solid fa-syringe mr-1"></i> GANTI
-                        </button>
-                        <button onclick="downloadRawAsset(${idx})" class="w-full py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[9px] font-bold text-slate-300 rounded shadow active:scale-95 transition">
-                            <i class="fa-solid fa-download mr-1"></i> UNDUH
-                        </button>
+                        <button onclick="document.getElementById('manualInject_${idx}').click()" class="w-full py-1.5 flex items-center justify-center grad-emerald hover:brightness-110 border border-emerald-500/20 text-white rounded text-[9px] shadow active:scale-95 transition"><i class="fa-solid fa-syringe mr-1"></i> GANTI</button>
+                        <button onclick="downloadRawAsset(${idx})" class="w-full py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[9px] font-bold text-slate-300 rounded shadow active:scale-95 transition"><i class="fa-solid fa-download mr-1"></i> UNDUH</button>
                         ${actionBtn}
                     </div>`;
                 container.appendChild(el);
             });
         }
-        
+
+        // --- DOWNLOADS & INJECTIONS ---
         window.saveFileAPK = async (blob, fileName) => {
             const isImage = blob.type.startsWith('image/') || fileName.match(/\.(png|jpe?g|gif)$/i);
             const modal = document.getElementById('downloadModal'); modal.classList.remove('hidden');
@@ -1375,17 +964,72 @@
             } catch(e) { showNotification("Gagal repack: " + e.message, "error"); } finally { document.getElementById('loadingOverlay').classList.add('hidden'); }
         }
 
-        function getLocalCoords(clientX, clientY) {
-            const rect = editorCanvas.getBoundingClientRect(); const screenOffsetY = isPrecisionMode ? 80 : 0;
-            return { x: (clientX - rect.left) / scale, y: (clientY - screenOffsetY - rect.top) / scale };
+        async function smartCompress(buffer, w, h, targetLimit) {
+            if (!UPNG) { throw new Error("UPNG Library missing"); }
+            const depths = targetLimit ? [0, 256, 128, 64, 32, 16, 8, 4, 2] : [0]; let bestRes = null;
+            for (let d of depths) { const png = UPNG.encode([buffer], w, h, d); if (targetLimit && png.byteLength <= targetLimit) { return png; } if (!bestRes || png.byteLength < bestRes.byteLength) { bestRes = png; } }
+            if (targetLimit && bestRes && bestRes.byteLength > targetLimit) { return null; } return bestRes;
         }
 
-        window.toggleMode = (mode) => {
-            if(mode === 'pan') { disableEyedropper(); if (currentTool === 'none') { setTool('idle'); showNotification("Mode Geser Terkunci", "info"); } 
-                else { toggleToolState('brush', false); toggleToolState('eraser', false); document.getElementById('brushActiveToggle').checked = false; document.getElementById('eraserActiveToggle').checked = false; setTool('none'); showNotification("Mode Geser Aktif", "info"); }
-            }
+        window.handleManualInjection = (event, index) => {
+            const file = event.target.files[0]; event.target.value = ''; if (!file) return; const reader = new FileReader();
+            reader.onload = async (e) => {
+                const img = new Image();
+                img.onload = async () => {
+                    document.getElementById('loadingOverlay').classList.remove('hidden'); document.getElementById('loadingStatus').innerText = "Injeksi...";
+                    const tempCanvas = document.createElement('canvas'); tempCanvas.width = img.width; tempCanvas.height = img.height; tempCanvas.getContext('2d').drawImage(img, 0, 0);
+                    try {
+                        const buffer = new Uint8Array(tempCanvas.getContext('2d').getImageData(0,0,img.width,img.height).data).buffer; const target = foundImages[index];
+                        const bestBuffer = await smartCompress(buffer, img.width, img.height, target.isHidden ? target.size : null); document.getElementById('loadingOverlay').classList.add('hidden');
+                        if (bestBuffer) { showNotification("Sukses", "success"); const blob = new Blob([bestBuffer], {type:'image/png'}); if(target.url) URL.revokeObjectURL(target.url); target.modifiedData = blob; target.blob = blob; target.url = URL.createObjectURL(blob); target.modified = true; if(target.draftData) delete target.draftData; renderList(); } else { showNotification("Gagal", "error"); }
+                    } catch(err) { document.getElementById('loadingOverlay').classList.add('hidden'); showNotification("Error", "error"); }
+                }; img.src = e.target.result;
+            }; reader.readAsDataURL(file);
         };
-        
+
+        window.injectFromEditor = async () => {
+            if (isImportedImage) return; toggleTools(true);
+            selectionBox.style.display = 'none'; selectionActive = false; brushCursor.style.display = 'none'; document.getElementById('loadingOverlay').classList.remove('hidden'); document.getElementById('loadingStatus').innerText = "Editor: Kompresi...";
+            await new Promise(r => setTimeout(r, 100)); 
+            try {
+                if(textState.visible || isTextVirtual) { await rasterizeTextLayer(); }
+                const w = editorCanvas.width; const h = editorCanvas.height; const target = foundImages[currentEditorImageIndex];
+                const imageData = ctx.getImageData(0,0,w,h); const data = imageData.data;
+                if (target.isHidden) { for(let i=0; i<data.length; i+=4) { if (data[i+3] < 128) { data[i] = 0; data[i+1] = 0; data[i+2] = 0; data[i+3] = 0; } else { data[i+3] = 255; } } }
+                const buffer = new Uint8Array(data).buffer; const bestBuffer = await smartCompress(buffer, w, h, target.isHidden ? target.size : null);
+                if (bestBuffer) {
+                    const blob = new Blob([bestBuffer], {type:'image/png'}); if(target.url) URL.revokeObjectURL(target.url); target.modifiedData = blob; target.blob = blob; target.url = URL.createObjectURL(blob); target.modified = true;
+                    if(target.draftData) delete target.draftData; if(target.draftUndoStack) delete target.draftUndoStack; renderList(); 
+                    const newImg = new Image();
+                    newImg.onload = () => { ctx.clearRect(0, 0, w, h); ctx.drawImage(newImg, 0, 0); originalImportedImage = newImg; undoStack = []; appliedShadersList = []; renderShaderBadges(); document.getElementById('loadingOverlay').classList.add('hidden'); showNotification("Injeksi Sukses!", "success"); }; newImg.src = target.url;
+                } else { document.getElementById('loadingOverlay').classList.add('hidden'); showNotification(`Gagal: Ukuran melampaui batas embed.`, "error"); }
+            } catch(e) { document.getElementById('loadingOverlay').classList.add('hidden'); showNotification("Error: " + e.message, "error"); }
+        }
+
+        window.revertImage = (index) => { const img = foundImages[index]; const blob = new Blob([img.originalData], {type:'image/png'}); img.blob = blob; img.url = URL.createObjectURL(blob); img.modified = false; img.textLayerData = null; img.isBatch = false; if(img.draftData) delete img.draftData; renderList(); showNotification("Gambar di-reset ke asli", "info"); }
+
+        window.restoreModifiedImage = (index) => {
+             const imgData = foundImages[index]; if(!imgData.modifiedData) return;
+             fullEditorReset(); currentEditorImageIndex = index; isImportedImage = false; updateFloatingControls(); document.getElementById('enhancementPanel').classList.remove('hidden');
+             const img = new Image(); const hasTextLayer = !!imgData.textLayerData;
+             img.onload = () => {
+                editorCanvas.width = img.width; editorCanvas.height = img.height; ctx.imageSmoothingEnabled = false; ctx.clearRect(0,0,img.width, img.height); ctx.drawImage(img, 0, 0);
+                originalImportedImage = document.createElement('canvas'); originalImportedImage.width = img.width; originalImportedImage.height = img.height; originalImportedImage.getContext('2d').drawImage(img, 0, 0);
+                headerFileName.innerText = imgData.name + ` (${img.width}x${img.height})`; document.getElementById('resizeW').value = img.width; document.getElementById('resizeH').value = img.height;
+                if(hasTextLayer) { textState = JSON.parse(JSON.stringify(imgData.textLayerData)); textInner.innerText = imgData.textLayerContent || "TEKS"; if(imgData.textLayerColors) { document.getElementById('textColorPicker').value = imgData.textLayerColors.text; document.getElementById('outlineColorPicker').value = imgData.textLayerColors.outline; document.getElementById('outlineSizeSlider').value = imgData.textLayerColors.outlineSize; document.getElementById('outlineSizeVal').innerText = imgData.textLayerColors.outlineSize + 'px'; document.getElementById('outlineCheck').checked = imgData.textLayerColors.hasOutline; } toggleTextVisibility(true); syncTextOverlayVisuals(); document.getElementById('textVisibleToggle').checked = true; openSubMenu('text'); }
+                switchView('editor'); let fitScale = Math.min((canvasViewport.clientWidth - 40) / img.width, (canvasViewport.clientHeight - 80) / img.height); fitScale = Math.min(fitScale, 2.5); fitScale = Math.max(fitScale, 0.1); pannedX = 0; pannedY = 0; applyZoom(fitScale); showNotification(hasTextLayer ? "Layer Teks Dipulihkan" : "Gambar Flat Dimuat", "info");
+            };
+            if (hasTextLayer) { const blobOriginal = new Blob([imgData.originalData], { type: 'image/png' }); img.src = URL.createObjectURL(blobOriginal); } else { img.src = URL.createObjectURL(imgData.modifiedData); }
+        }
+
+        window.downloadCurrentImage = () => { if(textState.visible || isTextVirtual) { (async () => { await rasterizeTextLayer(); finalizeDownload(); })(); } else { finalizeDownload(); } };
+        function finalizeDownload() { let fname = "edited_image.png"; if (currentEditorImageIndex !== -1) fname = foundImages[currentEditorImageIndex].name; else if (isImportedImage) fname = "imported_enhanced.png"; editorCanvas.toBlob((blob) => { saveFileAPK(blob, fname); showNotification("Gambar disimpan!", "success"); }, 'image/png'); }
+        window.downloadRawAsset = (index) => { const img = foundImages[index]; if (!img) return; if (img.blob) { saveFileAPK(img.blob, img.name); } else { saveFileAPK(new Blob([img.originalData], {type: 'image/png'}), img.name); } showNotification(`Mengunduh ${img.name}...`, "info"); };
+
+        // --- TOOLS & CANVAS CORE ---
+        function getLocalCoords(clientX, clientY) { const rect = editorCanvas.getBoundingClientRect(); const screenOffsetY = isPrecisionMode ? 80 : 0; return { x: (clientX - rect.left) / scale, y: (clientY - screenOffsetY - rect.top) / scale }; }
+
+        window.toggleMode = (mode) => { if(mode === 'pan') { disableEyedropper(); if (currentTool === 'none') { setTool('idle'); showNotification("Mode Geser Terkunci", "info"); } else { toggleToolState('brush', false); toggleToolState('eraser', false); document.getElementById('brushActiveToggle').checked = false; document.getElementById('eraserActiveToggle').checked = false; setTool('none'); showNotification("Mode Geser Aktif", "info"); } } };
         window.togglePrecisionMode = (isActive) => { isPrecisionMode = isActive; document.getElementById('precisionBrushToggle').checked = isActive; document.getElementById('precisionEraserToggle').checked = isActive; if(isActive) { canvasViewport.classList.add('cursor-crosshair'); showNotification("Mode Presisi Aktif", "info"); } else { canvasViewport.classList.remove('cursor-crosshair'); } };
         window.toggleEyedropper = (target) => { if (eyedropperActive && eyedropperTargetInput === target) { disableEyedropper(); showNotification("Pipet Dimatikan", "info"); } else { activateEyedropper(target); } };
         window.activateEyedropper = (target) => { eyedropperActive = true; eyedropperTargetInput = target; canvasViewport.classList.add('cursor-picker'); if(target === 'brush') document.getElementById('btnEyedropperBrush').classList.add('btn-eyedropper-active'); if(target === 'text') document.getElementById('btnEyedropperText').classList.add('btn-eyedropper-active'); showNotification("Sentuh warna di layar", "info"); };
@@ -1396,16 +1040,9 @@
             if (e.type === 'mousedown') { e.preventDefault(); }
             if(eyedropperActive) { const pos = getLocalCoords(e.touches ? e.touches[0].clientX : e.clientX, e.touches ? e.touches[0].clientY : e.clientY); pickColorAt(pos.x, pos.y); return; }
             if(e.touches && e.touches.length === 2) { isTouchZooming = true; lastTouchDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY); isDrawing = false; return; }
-            
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX; const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            const pos = getLocalCoords(clientX, clientY);
-
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX; const clientY = e.touches ? e.touches[0].clientY : e.clientY; const pos = getLocalCoords(clientX, clientY);
             if (currentTool === 'none') { isPanning = true; startPanX = clientX - pannedX; startPanY = clientY - pannedY; canvasViewport.style.cursor = 'grabbing'; } 
-            else if (currentTool === 'brush' || currentTool === 'eraser') {
-                const isMagicBrush = (currentTool === 'brush' && document.getElementById('brushMagicToggle').checked); const isMagicEraser = (currentTool === 'eraser' && document.getElementById('eraserMagicToggle').checked);
-                if (isMagicBrush || isMagicEraser) { saveState(); applyMagicWand(pos.x, pos.y, isMagicEraser); return; }
-                isDrawing = true; saveState(); lastDrawX = pos.x; lastDrawY = pos.y; paintLine(pos.x, pos.y, pos.x, pos.y, currentTool === 'eraser');
-            }
+            else if (currentTool === 'brush' || currentTool === 'eraser') { const isMagicBrush = (currentTool === 'brush' && document.getElementById('brushMagicToggle').checked); const isMagicEraser = (currentTool === 'eraser' && document.getElementById('eraserMagicToggle').checked); if (isMagicBrush || isMagicEraser) { saveState(); applyMagicWand(pos.x, pos.y, isMagicEraser); return; } isDrawing = true; saveState(); lastDrawX = pos.x; lastDrawY = pos.y; paintLine(pos.x, pos.y, pos.x, pos.y, currentTool === 'eraser'); }
         }
         
         function pickColorAt(x, y) {
@@ -1420,16 +1057,12 @@
             if(isTouchZooming && e.touches && e.touches.length === 2) { e.preventDefault(); const dist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY); if (lastTouchDist > 0) { applyZoom(Math.max(0.1, Math.min(scale + ((dist - lastTouchDist) * 0.005 * scale * 2), 10))); } lastTouchDist = dist; return; }
             if (isPanning && currentTool === 'none') { e.preventDefault(); pannedX = (e.touches ? e.touches[0].clientX : e.clientX) - startPanX; pannedY = (e.touches ? e.touches[0].clientY : e.clientY) - startPanY; updateTransform(); return; }
             if (currentTool === 'none') { brushCursor.style.display = 'none'; return; }
-            
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX; const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            const pos = getLocalCoords(clientX, clientY);
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX; const clientY = e.touches ? e.touches[0].clientY : e.clientY; const pos = getLocalCoords(clientX, clientY);
             const brushSize = parseInt(currentTool === 'brush' ? document.getElementById('brushSizeSlider').value : document.getElementById('eraserSizeSlider').value);
             const rectViewport = canvasViewport.getBoundingClientRect(); const visualBrushSize = brushSize * scale;
-            
             brushCursor.style.width = visualBrushSize + 'px'; brushCursor.style.height = visualBrushSize + 'px';
             brushCursor.style.transform = `translate3d(${(clientX - rectViewport.left) - (visualBrushSize / 2)}px, ${(clientY - (isPrecisionMode ? 80 : 0) - rectViewport.top) - (visualBrushSize / 2)}px, 0)`;
             brushCursor.style.display = 'block';
-            
             if (isDrawing && !eyedropperActive) { e.preventDefault(); paintLine(lastDrawX, lastDrawY, pos.x, pos.y, currentTool === 'eraser'); lastDrawX = pos.x; lastDrawY = pos.y; }
         }
 
@@ -1440,13 +1073,8 @@
         window.addEventListener('mouseup', handlePointerUp); window.addEventListener('touchend', handlePointerUp);
         canvasViewport.addEventListener('wheel', (e) => { e.preventDefault(); applyZoom(Math.max(0.1, Math.min(scale + ((e.deltaY > 0 ? -1 : 1) * 0.1 * scale * 2), 10))); }, {passive: false});
 
-        window.toggleToolState = (toolName, isActive) => {
-            disableEyedropper(); 
-            if (isActive) { currentTool = toolName; brushCursor.style.display = 'block'; if (toolName === 'brush') { document.getElementById('eraserActiveToggle').checked = false; } if (toolName === 'eraser') { document.getElementById('brushActiveToggle').checked = false; } setTool(toolName); showNotification(`Alat Aktif`, 'success'); } 
-            else { if (currentTool === toolName) { setTool('none'); brushCursor.style.display = 'none'; } }
-        };
-
-        window.setTool = (tool) => { currentTool = tool; const btnModePan = document.getElementById('btnModePan'); if (tool === 'none') { btnModePan.classList.replace('grad-slate', 'grad-emerald'); btnModePan.classList.replace('text-slate-200', 'text-white'); btnModePan.classList.add('border-emerald-500'); } else { btnModePan.classList.replace('grad-emerald', 'grad-slate'); btnModePan.classList.replace('text-white', 'text-slate-200'); btnModePan.classList.remove('border-emerald-500'); } };
+        window.toggleToolState = (toolName, isActive) => { disableEyedropper(); if (isActive) { currentTool = toolName; brushCursor.style.display = 'block'; if (toolName === 'brush') { document.getElementById('eraserActiveToggle').checked = false; } if (toolName === 'eraser') { document.getElementById('brushActiveToggle').checked = false; } setTool(toolName); showNotification(`Alat Aktif`, 'success'); } else { if (currentTool === toolName) { setTool('none'); brushCursor.style.display = 'none'; } } };
+        window.setTool = (tool) => { currentTool = tool; const btnModePan = document.getElementById('btnModePan'); if (tool === 'none') { btnModePan.classList.remove('grad-slate', 'text-slate-200'); btnModePan.classList.add('grad-emerald', 'text-white', 'border-emerald-500'); } else { btnModePan.classList.remove('grad-emerald', 'text-white', 'border-emerald-500'); btnModePan.classList.add('grad-slate', 'text-slate-200'); } };
 
         function fullEditorReset() {
             currentTool = 'none'; isPanning = false; selectionActive = false; undoStack = []; isTextVirtual = false; isPrecisionMode = false; disableEyedropper(); currentActiveShader = null; btnApplyAll.classList.add('hidden'); 
@@ -1483,21 +1111,36 @@
             saveState(); const tempCanvas = document.createElement('canvas'); tempCanvas.width = newW; tempCanvas.height = newH;
             const tCtx = tempCanvas.getContext('2d'); tCtx.imageSmoothingEnabled = false; tCtx.drawImage(editorCanvas, 0, 0, newW, newH);
             editorCanvas.width = newW; editorCanvas.height = newH; ctx = editorCanvas.getContext('2d'); ctx.imageSmoothingEnabled = false; ctx.drawImage(tempCanvas, 0, 0);
-            
-            // FIX: Simpan perubahan dimensi langsung ke file base aslinya!
-            originalImportedImage = document.createElement('canvas');
-            originalImportedImage.width = newW; originalImportedImage.height = newH;
-            originalImportedImage.getContext('2d').drawImage(editorCanvas, 0, 0);
-            
-            if(currentEditorImageIndex > -1) { 
-                foundImages[currentEditorImageIndex].draftDims = {w: newW, h: newH}; // Update ke draft gambar
-                headerFileName.innerText = `${foundImages[currentEditorImageIndex].name} (${newW}x${newH})`; 
-            }
+            originalImportedImage = document.createElement('canvas'); originalImportedImage.width = newW; originalImportedImage.height = newH; originalImportedImage.getContext('2d').drawImage(editorCanvas, 0, 0);
+            if(currentEditorImageIndex > -1) { foundImages[currentEditorImageIndex].draftDims = {w: newW, h: newH}; headerFileName.innerText = `${foundImages[currentEditorImageIndex].name} (${newW}x${newH})`; }
             showNotification(`Diubah ke ${newW}x${newH}`, "success"); updateTransform(); 
         };
 
         window.clearSelectionArea = () => { saveState(); ctx.clearRect(0, 0, editorCanvas.width, editorCanvas.height); showNotification("Kanvas bersih", "warning"); };
 
+        function saveState(withText = false) {
+             if (undoStack.length >= MAX_UNDO) undoStack.shift();
+             let state = { data: ctx.getImageData(0, 0, editorCanvas.width, editorCanvas.height), badges: [...(window.appliedShadersList || [])], textData: withText ? { state: JSON.parse(JSON.stringify(textState)), content: textInner.innerText, colors: { text: document.getElementById('textColorPicker').value, outline: document.getElementById('outlineColorPicker').value, outlineSize: document.getElementById('outlineSizeSlider').value, hasOutline: document.getElementById('outlineCheck').checked } } : null };
+             undoStack.push(state); document.getElementById('btnUndo').disabled = false;
+        }
+
+        window.undo = () => { 
+            if (undoStack.length > 0) { 
+                const state = undoStack.pop();
+                if (editorCanvas.width !== state.data.width || editorCanvas.height !== state.data.height) { editorCanvas.width = state.data.width; editorCanvas.height = state.data.height; document.getElementById('resizeW').value = state.data.width; document.getElementById('resizeH').value = state.data.height; }
+                ctx.putImageData(state.data, 0, 0); 
+                window.appliedShadersList = state.badges || []; window.renderShaderBadges();
+                if (state.textData) { textState = state.textData.state; textInner.innerText = state.textData.content; document.getElementById('textColorPicker').value = state.textData.colors.text; document.getElementById('outlineColorPicker').value = state.textData.colors.outline; document.getElementById('outlineSizeSlider').value = state.textData.colors.outlineSize; document.getElementById('outlineCheck').checked = state.textData.colors.hasOutline; toggleTextVisibility(true); document.getElementById('textVisibleToggle').checked = true; openSubMenu('text'); showNotification("Teks Dikembalikan", "info"); } 
+                else { if(textState.visible) { toggleTextVisibility(false); document.getElementById('textVisibleToggle').checked = false; } }
+                if(undoStack.length === 0) document.getElementById('btnUndo').disabled = true; 
+            } 
+        }
+        
+        window.resetZoom = () => { scale = 1; pannedX = 0; pannedY = 0; applyZoom(1); }
+        function applyZoom(val) { scale = val; document.getElementById('zoomSlider').value = scale; document.getElementById('zoomValDisplay').innerText = scale.toFixed(1) + 'x'; updateTransform(); if(textState.visible) syncTextOverlayVisuals(); }
+        function updateTransform() { canvasWrapper.style.transform = `translate(${pannedX}px, ${pannedY}px) scale(${scale})`; }
+
+        // --- TEXT LOGIC ---
         function animateOverlay() { if (!textState.visible) { if(overlaySyncId) cancelAnimationFrame(overlaySyncId); return; } syncTextOverlayVisuals(); overlaySyncId = requestAnimationFrame(animateOverlay); }
 
         window.toggleTextVisibility = (isVisible) => {
@@ -1583,43 +1226,6 @@
             ctx.clearRect(0,0,w,h); ctx.drawImage(finalCanvas, 0, 0);
         };
 
-        async function smartCompress(buffer, w, h, targetLimit) {
-            if (!UPNG) { throw new Error("UPNG Library missing"); }
-            const depths = targetLimit ? [0, 256, 128, 64, 32, 16, 8, 4, 2] : [0]; let bestRes = null;
-            for (let d of depths) { const png = UPNG.encode([buffer], w, h, d); if (targetLimit && png.byteLength <= targetLimit) { return png; } if (!bestRes || png.byteLength < bestRes.byteLength) { bestRes = png; } }
-            if (targetLimit && bestRes && bestRes.byteLength > targetLimit) { return null; } return bestRes;
-        }
-
-        window.handleManualInjection = (event, index) => {
-            const file = event.target.files[0]; event.target.value = ''; if (!file) return;
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                const img = new Image();
-                img.onload = async () => {
-                    document.getElementById('loadingOverlay').classList.remove('hidden'); document.getElementById('loadingStatus').innerText = "Injeksi...";
-                    const tempCanvas = document.createElement('canvas'); tempCanvas.width = img.width; tempCanvas.height = img.height; tempCanvas.getContext('2d').drawImage(img, 0, 0);
-                    try {
-                        const buffer = new Uint8Array(tempCanvas.getContext('2d').getImageData(0,0,img.width,img.height).data).buffer; const target = foundImages[index];
-                        const bestBuffer = await smartCompress(buffer, img.width, img.height, target.isHidden ? target.size : null);
-                        document.getElementById('loadingOverlay').classList.add('hidden');
-                        if (bestBuffer) {
-                            showNotification("Sukses", "success"); const blob = new Blob([bestBuffer], {type:'image/png'});
-                            if(target.url) URL.revokeObjectURL(target.url); target.modifiedData = blob; target.blob = blob; target.url = URL.createObjectURL(blob); target.modified = true; if(target.draftData) delete target.draftData; renderList();
-                        } else { showNotification("Gagal", "error"); }
-                    } catch(err) { document.getElementById('loadingOverlay').classList.add('hidden'); showNotification("Error", "error"); }
-                }; img.src = e.target.result;
-            }; reader.readAsDataURL(file);
-        };
-
-        window.downloadCurrentImage = () => { if(textState.visible || isTextVirtual) { (async () => { await rasterizeTextLayer(); finalizeDownload(); })(); } else { finalizeDownload(); } };
-        
-        function finalizeDownload() { editorCanvas.toBlob((blob) => { saveFileAPK(blob, currentEditorImageIndex !== -1 ? foundImages[currentEditorImageIndex].name : "edited.png"); showNotification("Gambar disimpan!", "success"); }, 'image/png'); }
-        
-        window.downloadRawAsset = (index) => {
-            const img = foundImages[index]; if (!img) return;
-            saveFileAPK(img.blob ? img.blob : new Blob([img.originalData], {type: 'image/png'}), img.name); showNotification(`Mengunduh...`, "info");
-        };
-
         function showNotification(msg, type) {
             const div = document.createElement('div'); div.className = `${type === 'success' ? 'grad-emerald' : (type === 'error' ? 'grad-red' : 'grad-blue')} text-white px-4 py-2 rounded-full shadow-lg text-[10px] font-bold flex items-center gap-2 animate-[slide-down_0.3s] backdrop-blur-md bg-opacity-95 border border-white/20`;
             div.innerHTML = `<i class="fa-solid fa-info-circle"></i> ${msg}`; document.getElementById('notificationArea').innerHTML = ''; document.getElementById('notificationArea').appendChild(div); setTimeout(() => div.remove(), 2500);
@@ -1637,7 +1243,7 @@
                 let fitScale = Math.min((document.getElementById('canvasViewport').clientWidth-40)/img.width, (document.getElementById('canvasViewport').clientHeight-80)/img.height); pannedX = 0; pannedY = 0; applyZoom(Math.min(fitScale > 1 ? 1 : fitScale, 2.0));
             }; img.src = URL.createObjectURL(file);
         }
-		
+
         window.openBlankEditor = () => {
             fullEditorReset(); editorCanvas.width = 240; editorCanvas.height = 320; ctx.clearRect(0, 0, 240, 320); originalImportedImage = document.createElement('canvas'); originalImportedImage.width = 240; originalImportedImage.height = 320;
             headerFileName.innerText = `Blank Canvas (240x320)`; document.getElementById('resizeW').value = 240; document.getElementById('resizeH').value = 320; currentEditorImageIndex = -1; isImportedImage = true; document.getElementById('enhancementPanel').classList.remove('hidden'); updateFloatingControls(); switchView('editor'); toggleTools(true); 
@@ -1645,234 +1251,55 @@
         window.openOutlineMenu = () => { document.getElementById('outlineSelectionModal').classList.remove('hidden'); };
 
         window.applyShader = async (type, isBatchProcessing = false) => {
-            if (!originalImportedImage) { 
-                if(!isBatchProcessing) showNotification("Error: Tidak ada data asli!", "error"); 
-                return; 
-            }
-            
-            const targetImg = currentEditorImageIndex > -1 ? foundImages[currentEditorImageIndex] : null;
-            const slowShaders = ['fxaa', 'shader_5xbr', 'cartoon'];
-            const isSlow = slowShaders.includes(type);
-
-            // JIKA BUKAN BATCH: Tampilkan UI, Kapsul, dan Loading
+            if (!originalImportedImage) { if(!isBatchProcessing) showNotification("Error: Tidak ada data asli!", "error"); return; }
+            const targetImg = currentEditorImageIndex > -1 ? foundImages[currentEditorImageIndex] : null; const slowShaders = ['fxaa', 'shader_5xbr', 'cartoon']; const isSlow = slowShaders.includes(type);
             if (!isBatchProcessing) {
-                if (isSlow) {
-                    document.getElementById('loadingOverlay').classList.remove('hidden');
-                    document.getElementById('loadingStatus').innerText = "Memproses Algoritma...";
-                    await new Promise(r => setTimeout(r, 50)); 
-                }
-
+                if (isSlow) { document.getElementById('loadingOverlay').classList.remove('hidden'); document.getElementById('loadingStatus').innerText = "Memproses Algoritma..."; await new Promise(r => setTimeout(r, 50)); }
                 const heavyShaders = ['natural', 'fxaa', 'shader_5xbr', 'smart_contrast', 'cartoon', 'retro_color', 'cool'];
-                if (targetImg && targetImg.isHidden && heavyShaders.includes(type)) {
-                    showNotification("⛔ PERINGATAN: Shader ini membuat ukuran file Embed BENGKAK!", "error");
-                    await new Promise(r => setTimeout(r, 2000));
-                }
-
-                saveState();
-                appliedShadersList.push(type); 
-                renderShaderBadges();
-                currentActiveShader = type; 
-                btnApplyAll.classList.remove('hidden'); 
+                if (targetImg && targetImg.isHidden && heavyShaders.includes(type)) { showNotification("⛔ PERINGATAN: Shader ini membuat ukuran file Embed BENGKAK!", "error"); await new Promise(r => setTimeout(r, 2000)); }
+                saveState(); appliedShadersList.push(type); renderShaderBadges(); currentActiveShader = type; btnApplyAll.classList.remove('hidden'); 
             }
-
-            const w = editorCanvas.width; const h = editorCanvas.height;
-            const imgData = ctx.getImageData(0, 0, w, h); 
-            const d = imgData.data;
-
-            // (LOGIKA SHADER TETAP SAMA)
-            if (type === 'palette_bright') {
-                const sat = 1.4; const bright = 15; const detailLevel = 4; let colorMap = new Map();
-                for(let i=0; i<d.length; i+=4) { if (d[i+3] < 50) continue; 
-                    let key = `${d[i]},${d[i+1]},${d[i+2]}`;
-                    if (!colorMap.has(key)) { let r = d[i], g = d[i+1], b = d[i+2]; let luma = 0.299*r + 0.587*g + 0.114*b;
-                        let nr = luma + (r - luma) * sat + bright; let ng = luma + (g - luma) * sat + bright; let nb = luma + (b - luma) * sat + bright;
-                        nr = Math.max(0, Math.min(255, Math.round(nr / detailLevel) * detailLevel)); ng = Math.max(0, Math.min(255, Math.round(ng / detailLevel) * detailLevel)); nb = Math.max(0, Math.min(255, Math.round(nb / detailLevel) * detailLevel));
-                        colorMap.set(key, [nr, ng, nb]);
-                    }
-                    let newColor = colorMap.get(key); d[i] = newColor[0]; d[i+1] = newColor[1]; d[i+2] = newColor[2];
-                }
-                ctx.putImageData(imgData, 0, 0);
-            }
-            else if (type === 'palette_enhance') {
-                const contrast = 60; const factor = (259 * (contrast + 255)) / (255 * (259 - contrast)); const detailLevel = 8; let colorMap = new Map();
-                for(let i=0; i<d.length; i+=4) { if (d[i+3] < 50) continue; 
-                    let key = `${d[i]},${d[i+1]},${d[i+2]}`;
-                    if (!colorMap.has(key)) { let r = d[i], g = d[i+1], b = d[i+2]; let nr = factor * (r - 128) + 128; let ng = factor * (g - 128) + 128; let nb = factor * (b - 128) + 128;
-                        nr = Math.max(0, Math.min(255, Math.round(nr / detailLevel) * detailLevel)); ng = Math.max(0, Math.min(255, Math.round(ng / detailLevel) * detailLevel)); nb = Math.max(0, Math.min(255, Math.round(nb / detailLevel) * detailLevel));
-                        colorMap.set(key, [nr, ng, nb]);
-                    }
-                    let newColor = colorMap.get(key); d[i] = newColor[0]; d[i+1] = newColor[1]; d[i+2] = newColor[2];
-                }
-                ctx.putImageData(imgData, 0, 0);
-            }
-            else if (type === 'palette_warm') {
-                const detailLevel = 4; let colorMap = new Map();
-                for(let i=0; i<d.length; i+=4) { if (d[i+3] < 50) continue; 
-                    let key = `${d[i]},${d[i+1]},${d[i+2]}`;
-                    if (!colorMap.has(key)) { let r = d[i], g = d[i+1], b = d[i+2]; let luma = 0.299*r + 0.587*g + 0.114*b;
-                        let nr = r * 0.5 + luma * 0.5 + 40; let ng = g * 0.5 + luma * 0.5 + 15; let nb = b * 0.5 + luma * 0.5 - 30; 
-                        nr = Math.max(0, Math.min(255, Math.round(nr / detailLevel) * detailLevel)); ng = Math.max(0, Math.min(255, Math.round(ng / detailLevel) * detailLevel)); nb = Math.max(0, Math.min(255, Math.round(nb / detailLevel) * detailLevel));
-                        colorMap.set(key, [nr, ng, nb]);
-                    }
-                    let newColor = colorMap.get(key); d[i] = newColor[0]; d[i+1] = newColor[1]; d[i+2] = newColor[2];
-                }
-                ctx.putImageData(imgData, 0, 0);
-            }
-            else if (type === 'palette_outline') {
-                const copy = new Uint8ClampedArray(d); let outlineColor = [70, 70, 70]; 
-                for(let y=0; y<h; y++) { for(let x=0; x<w; x++) { const idx = (y * w + x) * 4; if (copy[idx+3] < 50) { 
-                             let neighborFound = false; const neighbors = [[0,-1], [0,1], [-1,0], [1,0]]; 
-                             for(let n of neighbors) { const nx = x+n[0]; const ny = y+n[1]; if(nx>=0 && nx<w && ny>=0 && ny<h) { const nIdx = (ny * w + nx) * 4; if(copy[nIdx+3] > 100) { neighborFound = true; break; } } }
-                             if(neighborFound) { d[idx] = outlineColor[0]; d[idx+1] = outlineColor[1]; d[idx+2] = outlineColor[2]; d[idx+3] = 255; }
-                } } } ctx.putImageData(imgData, 0, 0);
-            }
-            else if (type === 'cartoon') {
-                const copy = new Uint8ClampedArray(d); const step = 48; 
-                for (let y = 0; y < h; y++) { for (let x = 0; x < w; x++) { const i = (y * w + x) * 4; if (d[i+3] === 0) continue;
-                        d[i] = Math.round(d[i] / step) * step; d[i+1] = Math.round(d[i+1] / step) * step; d[i+2] = Math.round(d[i+2] / step) * step;
-                        if (x < w - 1 && y < h - 1) { const iRight = (y * w + (x + 1)) * 4; const iBottom = ((y + 1) * w + x) * 4;
-                            const diffX = Math.abs(copy[i] - copy[iRight]) + Math.abs(copy[i+1] - copy[iRight+1]) + Math.abs(copy[i+2] - copy[iRight+2]);
-                            const diffY = Math.abs(copy[i] - copy[iBottom]) + Math.abs(copy[i+1] - copy[iBottom+1]) + Math.abs(copy[i+2] - copy[iBottom+2]);
-                            if (diffX > 80 || diffY > 80) { d[i] = Math.max(0, d[i] - 70); d[i+1] = Math.max(0, d[i+1] - 70); d[i+2] = Math.max(0, d[i+2] - 70); }
-                        }
-                } } ctx.putImageData(imgData, 0, 0);
-            }
-            else if (type === 'retro_color') {
-                const step = 51; const sat = 1.3; 
-                for(let i=0; i<d.length; i+=4) { if (d[i+3] === 0) continue; let r = d[i], g = d[i+1], b = d[i+2]; let luma = 0.299*r + 0.587*g + 0.114*b;
-                    r = luma + (r - luma) * sat; g = luma + (g - luma) * sat; b = luma + (b - luma) * sat;
-                    d[i] = Math.max(0, Math.min(255, Math.round(r / step) * step)); d[i+1] = Math.max(0, Math.min(255, Math.round(g / step) * step)); d[i+2] = Math.max(0, Math.min(255, Math.round(b / step) * step));
-                } ctx.putImageData(imgData, 0, 0);
-            }
-            else if (type === 'natural') {
-                const sat = 1.3; const con = 10; const factor = (259 * (con + 255)) / (255 * (259 - con));
-                for(let i=0; i<d.length; i+=4) { let r = d[i], g = d[i+1], b = d[i+2]; const gray = 0.299*r + 0.587*g + 0.114*b;
-                    r = gray + (r - gray) * sat; g = gray + (g - gray) * sat; b = gray + (b - gray) * sat;
-                    r = factor * (r - 128) + 128; g = factor * (g - 128) + 128; b = factor * (b - 128) + 128;
-                    d[i] = r; d[i+1] = g; d[i+2] = b;
-                } ctx.putImageData(imgData, 0, 0);
-            }
-            else if (type === 'grayscale') {
-                for(let i=0; i<d.length; i+=4) { const r = d[i], g = d[i+1], b = d[i+2]; const gray = 0.299*r + 0.587*g + 0.114*b;
-                    d[i] = gray; d[i+1] = gray; d[i+2] = gray;
-                } ctx.putImageData(imgData, 0, 0);
-            }
-            else if (type === 'cool') {
-                 for(let i=0; i<d.length; i+=4) { d[i] = Math.max(0, d[i] - 10); d[i+2] = Math.min(255, d[i+2] + 25); } ctx.putImageData(imgData, 0, 0);
-            }
-            else if (type === 'smart_contrast') {
-                const contrast = 30; const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
-                for(let i=0; i<d.length; i+=4) { if(d[i+3] > 10) { d[i] = factor * (d[i] - 128) + 128; d[i+1] = factor * (d[i+1] - 128) + 128; d[i+2] = factor * (d[i+2] - 128) + 128; } } ctx.putImageData(imgData, 0, 0);
-            }
-            else if (type === 'fxaa') {
-                const copy = new Uint8ClampedArray(d); const radius = Math.min(20, Math.max(15, Math.floor(Math.max(w, h) / 5))); const colorThresh = 80; 
-                for (let y = 0; y < h; y++) { for (let x = 0; x < w; x++) { const i = (y * w + x) * 4; if (copy[i+3] < 50) continue;
-                        let r = 0, g = 0, b = 0; let weightSum = 0;
-                        for(let dy = -radius; dy <= radius; dy++) { for(let dx = -radius; dx <= radius; dx++) { const nx = x + dx, ny = y + dy;
-                                if(nx>=0 && nx<w && ny>=0 && ny<h) { const ni = (ny * w + nx) * 4; const colorDist = Math.abs(copy[i]-copy[ni]) + Math.abs(copy[i+1]-copy[ni+1]) + Math.abs(copy[i+2]-copy[ni+2]);
-                                    if (colorDist < colorThresh) { r += copy[ni]; g += copy[ni+1]; b += copy[ni+2]; weightSum++; }
-                                } } }
-                        if (weightSum > 0) { d[i] = r / weightSum; d[i+1] = g / weightSum; d[i+2] = b / weightSum; d[i+3] = copy[i+3]; }
-                } } ctx.putImageData(imgData, 0, 0);
-            }
-            else if (type === 'shader_5xbr') {
-                const passes = Math.max(1, Math.min(2, Math.floor(Math.max(w, h) / 70))); let currentData = new Uint8ClampedArray(d);
-                const sim = (dataArr, i1, i2) => Math.abs(dataArr[i1]-dataArr[i2]) + Math.abs(dataArr[i1+1]-dataArr[i2+1]) + Math.abs(dataArr[i1+2]-dataArr[i2+2]) < 40;
-                for (let p = 0; p < passes; p++) { const nextData = new Uint8ClampedArray(currentData);
-                    for (let y = 1; y < h - 1; y++) { for (let x = 1; x < w - 1; x++) { const i = (y * w + x) * 4; if (currentData[i+3] < 50) continue;
-                            const iU = ((y-1) * w + x) * 4; const iD = ((y+1) * w + x) * 4; const iL = (y * w + x - 1) * 4; const iR = (y * w + x + 1) * 4; let blendTarget = null;
-                            if (sim(currentData, iU, iL) && !sim(currentData, iU, iD) && !sim(currentData, iL, iR)) blendTarget = iU;      
-                            else if (sim(currentData, iU, iR) && !sim(currentData, iU, iD) && !sim(currentData, iR, iL)) blendTarget = iU; 
-                            else if (sim(currentData, iD, iL) && !sim(currentData, iD, iU) && !sim(currentData, iL, iR)) blendTarget = iD; 
-                            else if (sim(currentData, iD, iR) && !sim(currentData, iD, iU) && !sim(currentData, iR, iL)) blendTarget = iD; 
-                            if (blendTarget !== null) { const blendRatio = (p === 0) ? 0.5 : 0.3; 
-                                nextData[i] = currentData[i] * (1 - blendRatio) + currentData[blendTarget] * blendRatio;
-                                nextData[i+1] = currentData[i+1] * (1 - blendRatio) + currentData[blendTarget+1] * blendRatio;
-                                nextData[i+2] = currentData[i+2] * (1 - blendRatio) + currentData[blendTarget+2] * blendRatio;
-                            }
-                    } } currentData = nextData;
-                }
-                for (let i = 0; i < d.length; i++) { d[i] = currentData[i]; } ctx.putImageData(imgData, 0, 0);
-            }
-            
-            // JIKA BUKAN BATCH: Tutup loading dan tampilkan notifikasi
-            if (!isBatchProcessing) {
-                showNotification(`Efek diaplikasikan`, "success");
-                if (isSlow) document.getElementById('loadingOverlay').classList.add('hidden');
-            }
+            const w = editorCanvas.width; const h = editorCanvas.height; const imgData = ctx.getImageData(0, 0, w, h); const d = imgData.data;
+            if (type === 'palette_bright') { const sat = 1.4; const bright = 15; const detailLevel = 4; let colorMap = new Map(); for(let i=0; i<d.length; i+=4) { if (d[i+3] < 50) continue; let key = `${d[i]},${d[i+1]},${d[i+2]}`; if (!colorMap.has(key)) { let r = d[i], g = d[i+1], b = d[i+2]; let luma = 0.299*r + 0.587*g + 0.114*b; let nr = luma + (r - luma) * sat + bright; let ng = luma + (g - luma) * sat + bright; let nb = luma + (b - luma) * sat + bright; nr = Math.max(0, Math.min(255, Math.round(nr / detailLevel) * detailLevel)); ng = Math.max(0, Math.min(255, Math.round(ng / detailLevel) * detailLevel)); nb = Math.max(0, Math.min(255, Math.round(nb / detailLevel) * detailLevel)); colorMap.set(key, [nr, ng, nb]); } let newColor = colorMap.get(key); d[i] = newColor[0]; d[i+1] = newColor[1]; d[i+2] = newColor[2]; } ctx.putImageData(imgData, 0, 0); }
+            else if (type === 'palette_enhance') { const contrast = 60; const factor = (259 * (contrast + 255)) / (255 * (259 - contrast)); const detailLevel = 8; let colorMap = new Map(); for(let i=0; i<d.length; i+=4) { if (d[i+3] < 50) continue; let key = `${d[i]},${d[i+1]},${d[i+2]}`; if (!colorMap.has(key)) { let r = d[i], g = d[i+1], b = d[i+2]; let nr = factor * (r - 128) + 128; let ng = factor * (g - 128) + 128; let nb = factor * (b - 128) + 128; nr = Math.max(0, Math.min(255, Math.round(nr / detailLevel) * detailLevel)); ng = Math.max(0, Math.min(255, Math.round(ng / detailLevel) * detailLevel)); nb = Math.max(0, Math.min(255, Math.round(nb / detailLevel) * detailLevel)); colorMap.set(key, [nr, ng, nb]); } let newColor = colorMap.get(key); d[i] = newColor[0]; d[i+1] = newColor[1]; d[i+2] = newColor[2]; } ctx.putImageData(imgData, 0, 0); }
+            else if (type === 'palette_warm') { const detailLevel = 4; let colorMap = new Map(); for(let i=0; i<d.length; i+=4) { if (d[i+3] < 50) continue; let key = `${d[i]},${d[i+1]},${d[i+2]}`; if (!colorMap.has(key)) { let r = d[i], g = d[i+1], b = d[i+2]; let luma = 0.299*r + 0.587*g + 0.114*b; let nr = r * 0.5 + luma * 0.5 + 40; let ng = g * 0.5 + luma * 0.5 + 15; let nb = b * 0.5 + luma * 0.5 - 30; nr = Math.max(0, Math.min(255, Math.round(nr / detailLevel) * detailLevel)); ng = Math.max(0, Math.min(255, Math.round(ng / detailLevel) * detailLevel)); nb = Math.max(0, Math.min(255, Math.round(nb / detailLevel) * detailLevel)); colorMap.set(key, [nr, ng, nb]); } let newColor = colorMap.get(key); d[i] = newColor[0]; d[i+1] = newColor[1]; d[i+2] = newColor[2]; } ctx.putImageData(imgData, 0, 0); }
+            else if (type === 'palette_outline') { const copy = new Uint8ClampedArray(d); let outlineColor = [70, 70, 70]; for(let y=0; y<h; y++) { for(let x=0; x<w; x++) { const idx = (y * w + x) * 4; if (copy[idx+3] < 50) { let neighborFound = false; const neighbors = [[0,-1], [0,1], [-1,0], [1,0]]; for(let n of neighbors) { const nx = x+n[0]; const ny = y+n[1]; if(nx>=0 && nx<w && ny>=0 && ny<h) { const nIdx = (ny * w + nx) * 4; if(copy[nIdx+3] > 100) { neighborFound = true; break; } } } if(neighborFound) { d[idx] = outlineColor[0]; d[idx+1] = outlineColor[1]; d[idx+2] = outlineColor[2]; d[idx+3] = 255; } } } } ctx.putImageData(imgData, 0, 0); }
+            else if (type === 'cartoon') { const copy = new Uint8ClampedArray(d); const step = 48; for (let y = 0; y < h; y++) { for (let x = 0; x < w; x++) { const i = (y * w + x) * 4; if (d[i+3] === 0) continue; d[i] = Math.round(d[i] / step) * step; d[i+1] = Math.round(d[i+1] / step) * step; d[i+2] = Math.round(d[i+2] / step) * step; if (x < w - 1 && y < h - 1) { const iRight = (y * w + (x + 1)) * 4; const iBottom = ((y + 1) * w + x) * 4; const diffX = Math.abs(copy[i] - copy[iRight]) + Math.abs(copy[i+1] - copy[iRight+1]) + Math.abs(copy[i+2] - copy[iRight+2]); const diffY = Math.abs(copy[i] - copy[iBottom]) + Math.abs(copy[i+1] - copy[iBottom+1]) + Math.abs(copy[i+2] - copy[iBottom+2]); if (diffX > 80 || diffY > 80) { d[i] = Math.max(0, d[i] - 70); d[i+1] = Math.max(0, d[i+1] - 70); d[i+2] = Math.max(0, d[i+2] - 70); } } } } ctx.putImageData(imgData, 0, 0); }
+            else if (type === 'retro_color') { const step = 51; const sat = 1.3; for(let i=0; i<d.length; i+=4) { if (d[i+3] === 0) continue; let r = d[i], g = d[i+1], b = d[i+2]; let luma = 0.299*r + 0.587*g + 0.114*b; r = luma + (r - luma) * sat; g = luma + (g - luma) * sat; b = luma + (b - luma) * sat; d[i] = Math.max(0, Math.min(255, Math.round(r / step) * step)); d[i+1] = Math.max(0, Math.min(255, Math.round(g / step) * step)); d[i+2] = Math.max(0, Math.min(255, Math.round(b / step) * step)); } ctx.putImageData(imgData, 0, 0); }
+            else if (type === 'natural') { const sat = 1.3; const con = 10; const factor = (259 * (con + 255)) / (255 * (259 - con)); for(let i=0; i<d.length; i+=4) { let r = d[i], g = d[i+1], b = d[i+2]; const gray = 0.299*r + 0.587*g + 0.114*b; r = gray + (r - gray) * sat; g = gray + (g - gray) * sat; b = gray + (b - gray) * sat; r = factor * (r - 128) + 128; g = factor * (g - 128) + 128; b = factor * (b - 128) + 128; d[i] = r; d[i+1] = g; d[i+2] = b; } ctx.putImageData(imgData, 0, 0); }
+            else if (type === 'grayscale') { for(let i=0; i<d.length; i+=4) { const r = d[i], g = d[i+1], b = d[i+2]; const gray = 0.299*r + 0.587*g + 0.114*b; d[i] = gray; d[i+1] = gray; d[i+2] = gray; } ctx.putImageData(imgData, 0, 0); }
+            else if (type === 'cool') { for(let i=0; i<d.length; i+=4) { d[i] = Math.max(0, d[i] - 10); d[i+2] = Math.min(255, d[i+2] + 25); } ctx.putImageData(imgData, 0, 0); }
+            else if (type === 'smart_contrast') { const contrast = 30; const factor = (259 * (contrast + 255)) / (255 * (259 - contrast)); for(let i=0; i<d.length; i+=4) { if(d[i+3] > 10) { d[i] = factor * (d[i] - 128) + 128; d[i+1] = factor * (d[i+1] - 128) + 128; d[i+2] = factor * (d[i+2] - 128) + 128; } } ctx.putImageData(imgData, 0, 0); }
+            else if (type === 'fxaa') { const copy = new Uint8ClampedArray(d); const radius = Math.min(20, Math.max(15, Math.floor(Math.max(w, h) / 5))); const colorThresh = 80; for (let y = 0; y < h; y++) { for (let x = 0; x < w; x++) { const i = (y * w + x) * 4; if (copy[i+3] < 50) continue; let r = 0, g = 0, b = 0; let weightSum = 0; for(let dy = -radius; dy <= radius; dy++) { for(let dx = -radius; dx <= radius; dx++) { const nx = x + dx, ny = y + dy; if(nx>=0 && nx<w && ny>=0 && ny<h) { const ni = (ny * w + nx) * 4; const colorDist = Math.abs(copy[i]-copy[ni]) + Math.abs(copy[i+1]-copy[ni+1]) + Math.abs(copy[i+2]-copy[ni+2]); if (colorDist < colorThresh) { r += copy[ni]; g += copy[ni+1]; b += copy[ni+2]; weightSum++; } } } } if (weightSum > 0) { d[i] = r / weightSum; d[i+1] = g / weightSum; d[i+2] = b / weightSum; d[i+3] = copy[i+3]; } } } ctx.putImageData(imgData, 0, 0); }
+            else if (type === 'shader_5xbr') { const passes = Math.max(1, Math.min(2, Math.floor(Math.max(w, h) / 70))); let currentData = new Uint8ClampedArray(d); const sim = (dataArr, i1, i2) => Math.abs(dataArr[i1]-dataArr[i2]) + Math.abs(dataArr[i1+1]-dataArr[i2+1]) + Math.abs(dataArr[i1+2]-dataArr[i2+2]) < 40; for (let p = 0; p < passes; p++) { const nextData = new Uint8ClampedArray(currentData); for (let y = 1; y < h - 1; y++) { for (let x = 1; x < w - 1; x++) { const i = (y * w + x) * 4; if (currentData[i+3] < 50) continue; const iU = ((y-1) * w + x) * 4; const iD = ((y+1) * w + x) * 4; const iL = (y * w + x - 1) * 4; const iR = (y * w + x + 1) * 4; let blendTarget = null; if (sim(currentData, iU, iL) && !sim(currentData, iU, iD) && !sim(currentData, iL, iR)) blendTarget = iU; else if (sim(currentData, iU, iR) && !sim(currentData, iU, iD) && !sim(currentData, iR, iL)) blendTarget = iU; else if (sim(currentData, iD, iL) && !sim(currentData, iD, iU) && !sim(currentData, iL, iR)) blendTarget = iD; else if (sim(currentData, iD, iR) && !sim(currentData, iD, iU) && !sim(currentData, iR, iL)) blendTarget = iD; if (blendTarget !== null) { const blendRatio = (p === 0) ? 0.5 : 0.3; nextData[i] = currentData[i] * (1 - blendRatio) + currentData[blendTarget] * blendRatio; nextData[i+1] = currentData[i+1] * (1 - blendRatio) + currentData[blendTarget+1] * blendRatio; nextData[i+2] = currentData[i+2] * (1 - blendRatio) + currentData[blendTarget+2] * blendRatio; } } } currentData = nextData; } for (let i = 0; i < d.length; i++) { d[i] = currentData[i]; } ctx.putImageData(imgData, 0, 0); }
+            if (!isBatchProcessing) { showNotification(`Efek diaplikasikan`, "success"); if (isSlow) document.getElementById('loadingOverlay').classList.add('hidden'); }
         };
 
         window.applyShaderToAll = () => {
             if (!currentActiveShader || foundImages.length === 0) return;
-            
             const shaderName = shaderBadgeInfo[currentActiveShader]?.name || 'Terpilih';
-            
-            // MENGGUNAKAN CUSTOM CONFIRM!
             customConfirm(`Terapkan efek '${shaderName}' ke semua gambar (${foundImages.length} items)?\n\nPeringatan: Proses ini akan menimpa modifikasi lain pada gambar yang belum tersimpan.`, async () => {
-                
-                document.getElementById('loadingOverlay').classList.remove('hidden');
-                const originalIndex = currentEditorImageIndex;
-
+                document.getElementById('loadingOverlay').classList.remove('hidden'); const originalIndex = currentEditorImageIndex;
                 try {
-                    let processed = 0;
-                    let failed = 0;
-
+                    let processed = 0; let failed = 0;
                     for (let i = 0; i < foundImages.length; i++) {
-                        const imgData = foundImages[i];
-                        document.getElementById('loadingStatus').innerText = `Memproses: ${i + 1} / ${foundImages.length}`;
-
-                        const img = new Image();
-                        await new Promise((resolve, reject) => {
-                            img.onload = resolve; img.onerror = reject; img.src = imgData.url; 
-                        });
-                        
-                        editorCanvas.width = img.width; editorCanvas.height = img.height;
-                        ctx.clearRect(0, 0, img.width, img.height);
-                        ctx.drawImage(img, 0, 0);
-
-                        // EKSEKUSI SHADER DENGAN MODE BATCH (Tanpa merusak UI Kapsul)
+                        const imgData = foundImages[i]; document.getElementById('loadingStatus').innerText = `Memproses: ${i + 1} / ${foundImages.length}`;
+                        const img = new Image(); await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = imgData.url; });
+                        editorCanvas.width = img.width; editorCanvas.height = img.height; ctx.clearRect(0, 0, img.width, img.height); ctx.drawImage(img, 0, 0);
                         await applyShader(currentActiveShader, true); 
-
-                        const w = editorCanvas.width; 
-                        const h = editorCanvas.height;
-                        const buffer = new Uint8Array(ctx.getImageData(0,0,w,h).data).buffer;
+                        const w = editorCanvas.width; const h = editorCanvas.height; const buffer = new Uint8Array(ctx.getImageData(0,0,w,h).data).buffer;
                         const bestBuffer = await smartCompress(buffer, w, h, imgData.isHidden ? imgData.size : null);
-
                         if (bestBuffer) {
-                            const blob = new Blob([bestBuffer], {type:'image/png'});
-                            if(imgData.url) URL.revokeObjectURL(imgData.url);
-                            imgData.modifiedData = blob; imgData.blob = blob; imgData.url = URL.createObjectURL(blob);
-                            imgData.modified = true; imgData.isBatch = true;
-                            
-                            // HAPUS SEMUA DRAF LOKAL AGAR TIDAK BENTROK
-                            if(imgData.draftData) delete imgData.draftData;
-                            if(imgData.draftBadges) delete imgData.draftBadges;
-                            if(imgData.draftUndoStack) delete imgData.draftUndoStack;
-                            
-                            processed++;
-                        } else {
-                            failed++;
-                        }
+                            const blob = new Blob([bestBuffer], {type:'image/png'}); if(imgData.url) URL.revokeObjectURL(imgData.url);
+                            imgData.modifiedData = blob; imgData.blob = blob; imgData.url = URL.createObjectURL(blob); imgData.modified = true; imgData.isBatch = true;
+                            if(imgData.draftData) delete imgData.draftData; if(imgData.draftBadges) delete imgData.draftBadges; if(imgData.draftUndoStack) delete imgData.draftUndoStack; processed++;
+                        } else { failed++; }
                     }
-                    
-                    if (originalIndex > -1) {
-                        loadToEditor(originalIndex);
-                    }
-
-                    let msg = `Sukses: ${processed} gambar diterapkan.`;
-                    if(failed > 0) msg += ` Gagal: ${failed} (Batas embed).`;
-                    showNotification(msg, failed > 0 ? "warning" : "success");
-                    
-                    renderList(); 
-                    
-                } catch (e) {
-                    showNotification("Batch Error: " + e.message, "error");
-                } finally {
-                    document.getElementById('loadingOverlay').classList.add('hidden');
-                }
+                    if (originalIndex > -1) { loadToEditor(originalIndex); }
+                    let msg = `Sukses: ${processed} gambar.`; if(failed > 0) msg += ` Gagal: ${failed} (Batas embed).`; showNotification(msg, failed > 0 ? "warning" : "success"); renderList(); 
+                } catch (e) { showNotification("Batch Error: " + e.message, "error"); } finally { document.getElementById('loadingOverlay').classList.add('hidden'); }
             });
         };
-        
     </script>
 </body>
 </html>
