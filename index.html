@@ -1286,7 +1286,6 @@
         }
         
         window.saveFileAPK = async (blob, fileName) => {
-            // Otak pendeteksi: Apakah ini gambar atau JAR?
             const isImage = blob.type.startsWith('image/') || fileName.match(/\.(png|jpe?g|gif)$/i);
             
             const modal = document.getElementById('downloadModal');
@@ -1297,20 +1296,18 @@
             const progDiv = document.getElementById('cloudProgress');
             const actionsDiv = document.getElementById('successActions');
 
-            actionsDiv.innerHTML = ''; // Bersihkan tombol sebelumnya
+            actionsDiv.innerHTML = ''; 
+            progDiv.classList.add('hidden'); 
+            actionsDiv.classList.remove('hidden');
+            actionsDiv.classList.add('flex');
 
             if (isImage) {
-                // --- JALUR 1: MODE GAMBAR (PNG/JPG) ---
                 titleEl.innerHTML = `<i class="fa-solid fa-image text-emerald-400"></i> Simpan Gambar`;
-                descEl.innerHTML = `Pilih metode penyimpanan gambar. Untuk APK Android, gunakan <b>Tampilkan (Tahan Layar)</b>.`;
-                progDiv.classList.add('hidden'); // Matikan bar loading upload
-                actionsDiv.classList.remove('hidden');
-                actionsDiv.classList.add('flex');
+                descEl.innerHTML = `Untuk APK Android, gunakan <b>Tahan Layar</b>. Untuk PC/Browser biasa, gunakan <b>Unduh Langsung</b>.`;
 
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     const base64data = e.target.result;
-                    
                     actionsDiv.innerHTML = `
                         <button id="btnViewImage" class="w-full py-3 grad-emerald rounded-xl text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg active:scale-95 transition">
                             <i class="fa-solid fa-expand"></i> Tampilkan (Tahan untuk Simpan)
@@ -1323,7 +1320,6 @@
                         </button>
                     `;
 
-                    // Aksi Tampilkan Gambar (Bypass Mutlak untuk WebView Android)
                     document.getElementById('btnViewImage').onclick = () => {
                         const viewer = document.createElement('div');
                         viewer.className = "fixed inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-center p-4 transition-all duration-300";
@@ -1338,29 +1334,50 @@
                         document.body.appendChild(viewer);
                         modal.classList.add('hidden');
                     };
-
-                    // Aksi Unduh PC (Standard Base64 Download)
-                    document.getElementById('btnDlLocal').onclick = () => {
-                        const a = document.createElement('a');
-                        a.href = base64data; a.download = fileName;
-                        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-                        modal.classList.add('hidden');
-                    };
-
-                    // Aksi Cloud (Jika user tetap ingin menggunakan Cloud untuk gambar)
-                    document.getElementById('btnDlCloudImg').onclick = () => {
-                        uploadToCloud(blob, fileName);
-                    };
+                    document.getElementById('btnDlLocal').onclick = () => { triggerLocalDownload(blob, fileName); modal.classList.add('hidden'); };
+                    document.getElementById('btnDlCloudImg').onclick = () => uploadToCloud(blob, fileName);
                 };
                 reader.readAsDataURL(blob);
 
             } else {
-                // --- JALUR 2: MODE FILE JAR/ZIP ---
-                titleEl.innerHTML = `<i class="fa-solid fa-cloud-arrow-down text-blue-400"></i> Server Unduhan`;
-                descEl.innerHTML = `Karena batasan WebView APK, file akan diunggah sementara ke server agar bisa diunduh dengan aman melalui Browser luar.`;
-                uploadToCloud(blob, fileName);
+                titleEl.innerHTML = `<i class="fa-solid fa-file-zipper text-amber-400"></i> Simpan File Mod`;
+                descEl.innerHTML = `Jika Anda di Browser/PC, pilih <b>Unduh Langsung</b>. Jika di APK dan terjadi Error, gunakan Server Cloud HTTPS.`;
+                
+                actionsDiv.innerHTML = `
+                    <button id="btnDlLocalJar" class="w-full py-3 grad-emerald rounded-xl text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg active:scale-95 transition">
+                        <i class="fa-solid fa-download"></i> Unduh Langsung (PC / Web)
+                    </button>
+                    <button id="btnShareJar" class="w-full py-3 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 font-bold text-xs flex items-center justify-center gap-2 shadow border border-slate-600 active:scale-95 transition">
+                        <i class="fa-solid fa-share-nodes"></i> Bagikan (Android Share)
+                    </button>
+                    <button id="btnDlCloudJar" class="w-full py-2 bg-slate-900 border border-blue-500/30 text-blue-400 rounded-xl font-bold text-[10px] flex items-center justify-center gap-2 mt-2 active:scale-95 transition">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> Buat Link (Khusus APK Error)
+                    </button>
+                `;
+
+                document.getElementById('btnDlLocalJar').onclick = () => { triggerLocalDownload(blob, fileName); modal.classList.add('hidden'); };
+                
+                document.getElementById('btnShareJar').onclick = async () => {
+                    if (navigator.canShare && navigator.canShare({ files: [new File([blob], fileName, { type: blob.type })] })) {
+                        try {
+                            await navigator.share({ title: 'Simpan J2ME Mod', files: [new File([blob], fileName, { type: blob.type })] });
+                            modal.classList.add('hidden');
+                        } catch (err) { console.log("Share batal", err); }
+                    } else { showNotification("Perangkat menolak Share. Gunakan opsi lain.", "error"); }
+                };
+
+                document.getElementById('btnDlCloudJar').onclick = () => uploadToCloud(blob, fileName);
             }
         };
+
+        // Helper fungsi trigger unduhan Blob Standar
+        function triggerLocalDownload(blob, fileName) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = fileName;
+            document.body.appendChild(a); a.click();
+            setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+        }
 
         // Fungsi Cloud dipisah agar bisa digunakan oleh kedua mode
         async function uploadToCloud(blob, fileName) {
@@ -1491,13 +1508,10 @@
 
         function getLocalCoords(clientX, clientY) {
             const rect = editorCanvas.getBoundingClientRect();
-            let offsetY = 0;
-            if (isPrecisionMode) {
-                offsetY = 60; 
-            }
+            const screenOffsetY = isPrecisionMode ? 80 : 0; // Jarak 80 piksel pasti di layar
             return { 
                 x: (clientX - rect.left) / scale, 
-                y: ((clientY - rect.top) - offsetY) / scale 
+                y: (clientY - screenOffsetY - rect.top) / scale 
             };
         }
 
@@ -1627,19 +1641,15 @@
         }
 
         function handlePointerMove(e) {
-            // FIX: Improved Pinch Zoom Move Logic
             if(isTouchZooming && e.touches && e.touches.length === 2) {
-                e.preventDefault(); // Critical to prevent browser zoom
+                e.preventDefault(); 
                 const dist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
-                
                 if (lastTouchDist > 0) {
                     const zoomSpeed = 0.005; 
                     const delta = dist - lastTouchDist;
-                    // More sensitive zoom
                     const newScale = scale + (delta * zoomSpeed * scale * 2);
                     applyZoom(Math.max(0.1, Math.min(newScale, 10)));
                 }
-                
                 lastTouchDist = dist;
                 return;
             }
@@ -1668,17 +1678,15 @@
                 document.getElementById('brushSizeSlider').value : 
                 document.getElementById('eraserSizeSlider').value);
 
+            // LOGIKA KURSOR BARU: Menggunakan koordinat fisik layar, BUKAN kanvas.
             const rectViewport = canvasViewport.getBoundingClientRect();
-            const rectCanvas = editorCanvas.getBoundingClientRect();
-            const relativeCanvasLeft = rectCanvas.left - rectViewport.left;
-            const relativeCanvasTop = rectCanvas.top - rectViewport.top;
-            const canvasPixelX = Math.floor(pos.x);
-            const canvasPixelY = Math.floor(pos.y);
+            const screenOffsetY = isPrecisionMode ? 80 : 0;
+            const targetScreenX = clientX;
+            const targetScreenY = clientY - screenOffsetY;
             const visualBrushSize = brushSize * scale;
-            const halfBrush = Math.floor(brushSize / 2);
             
-            const cursorLeft = relativeCanvasLeft + ((canvasPixelX - halfBrush) * scale);
-            const cursorTop = relativeCanvasTop + ((canvasPixelY - halfBrush) * scale);
+            const cursorLeft = (targetScreenX - rectViewport.left) - (visualBrushSize / 2);
+            const cursorTop = (targetScreenY - rectViewport.top) - (visualBrushSize / 2);
             
             brushCursor.style.width = visualBrushSize + 'px';
             brushCursor.style.height = visualBrushSize + 'px';
@@ -2287,50 +2295,88 @@
             reader.readAsDataURL(file);
         };
 
+        // --- Perbaikan Syntax Fungsi loadToEditor ---
+        window.loadToEditor = (index) => {
+            fullEditorReset(); 
+            const imgData = foundImages[index]; 
+            currentEditorImageIndex = index;
+            isImportedImage = false; 
+            updateFloatingControls();
+            document.getElementById('enhancementPanel').classList.remove('hidden');
+            imageCounter.innerText = `${index + 1} / ${foundImages.length}`;
+            
+            if(imgData.draftData) {
+                editorCanvas.width = imgData.draftDims.w; editorCanvas.height = imgData.draftDims.h;
+                ctx.putImageData(imgData.draftData, 0, 0);
+                
+                if(imgData.draftUndoStack && imgData.draftUndoStack.length > 0) {
+                     undoStack = [...imgData.draftUndoStack];
+                     document.getElementById('btnUndo').disabled = false;
+                }
+                
+                appliedShadersList = imgData.draftBadges ? [...imgData.draftBadges] : [];
+                renderShaderBadges();
+                if(appliedShadersList.length > 0) {
+                    currentActiveShader = appliedShadersList[appliedShadersList.length - 1];
+                    btnApplyAll.classList.remove('hidden');
+                }
+
+                const img = new Image();
+                img.onload = () => {
+                    originalImportedImage = document.createElement('canvas');
+                    originalImportedImage.width = img.width; originalImportedImage.height = img.height;
+                    originalImportedImage.getContext('2d').drawImage(img, 0, 0);
+                    
+                    if(imgData.draftText) {
+                        textState = imgData.draftText.state; textInner.innerText = imgData.draftText.content;
+                        if(imgData.draftText.colors) {
+                             document.getElementById('textColorPicker').value = imgData.draftText.colors.text;
+                             document.getElementById('outlineColorPicker').value = imgData.draftText.colors.outline;
+                             document.getElementById('outlineSizeSlider').value = imgData.draftText.colors.outlineSize;
+                             document.getElementById('outlineCheck').checked = imgData.draftText.colors.hasOutline;
+                             updateTextStyle();
+                        }
+                        toggleTextVisibility(true); document.getElementById('textVisibleToggle').checked = true;
+                        openSubMenu('text'); syncTextOverlayVisuals();
+                    }
+                };
+                img.src = imgData.url;
+
                 headerFileName.innerText = imgData.name + ` (${imgData.draftDims.w}x${imgData.draftDims.h})*`;
-                document.getElementById('resizeW').value = imgData.draftDims.w; 
-                document.getElementById('resizeH').value = imgData.draftDims.h;
+                document.getElementById('resizeW').value = imgData.draftDims.w; document.getElementById('resizeH').value = imgData.draftDims.h;
                 switchView('editor'); 
                 
                 const viewport = document.getElementById('canvasViewport');
                 let fitScale = Math.min((viewport.clientWidth - 40) / imgData.draftDims.w, (viewport.clientHeight - 80) / imgData.draftDims.h);
-                // FIX: AUTO FIT CAP 2.5x
-                fitScale = Math.min(fitScale, 2.0);
-                fitScale = Math.max(fitScale, 0.1);
-                
-                pannedX = 0; pannedY = 0;
-                applyZoom(fitScale);
+                fitScale = Math.min(fitScale, 2.0); fitScale = Math.max(fitScale, 0.1);
+                pannedX = 0; pannedY = 0; applyZoom(fitScale);
                 return;
             }
+
+            appliedShadersList = [];
+            renderShaderBadges();
+            currentActiveShader = null;
+            btnApplyAll.classList.add('hidden');
 
             const img = new Image();
             img.onload = () => {
                 editorCanvas.width = img.width; editorCanvas.height = img.height;
                 ctx.imageSmoothingEnabled = false; 
                 ctx.clearRect(0,0,img.width, img.height); ctx.drawImage(img, 0, 0);
-                originalImportedImage = document.createElement('canvas'); originalImportedImage.width = img.width; originalImportedImage.height = img.height; originalImportedImage.getContext('2d').drawImage(img, 0, 0);
+                originalImportedImage = document.createElement('canvas'); 
+                originalImportedImage.width = img.width; originalImportedImage.height = img.height; 
+                originalImportedImage.getContext('2d').drawImage(img, 0, 0);
                 
                 headerFileName.innerText = imgData.name + ` (${img.width}x${img.height})`;
                 document.getElementById('resizeW').value = img.width; document.getElementById('resizeH').value = img.height;
                 switchView('editor'); 
                 
                 const viewport = document.getElementById('canvasViewport');
-                const padding = 40;
-                const availableW = viewport.clientWidth - padding; 
-                const availableH = viewport.clientHeight - padding; 
+                let fitScale = Math.min((viewport.clientWidth - 40) / img.width, (viewport.clientHeight - 40) / img.height);
+                fitScale = Math.min(fitScale, 2.0); fitScale = Math.max(fitScale, 0.1);
+                fitScale = Math.floor(fitScale * 10) / 10; if(fitScale === 0) fitScale = 0.1;
                 
-                let fitScale = Math.min(availableW / img.width, availableH / img.height);
-                
-                // FIX: AUTO FIT CAP 2.5x
-                fitScale = Math.min(fitScale, 2.0);
-                fitScale = Math.max(fitScale, 0.1);
-                
-                // Round
-                fitScale = Math.floor(fitScale * 10) / 10;
-                if(fitScale === 0) fitScale = 0.1;
-                
-                pannedX = 0; pannedY = 0;
-                applyZoom(fitScale);
+                pannedX = 0; pannedY = 0; applyZoom(fitScale);
             };
             img.src = imgData.url;
         }
@@ -2925,88 +2971,7 @@
                 }
             });
         };
-
-        window.applyShaderToAll = async () => {
-            if (!currentActiveShader || foundImages.length === 0) return;
-            if (!confirm(`Terapkan efek '${currentActiveShader}' ke semua gambar (${foundImages.length} items)?\nProses ini mungkin memakan waktu beberapa detik.`)) return;
-
-            document.getElementById('loadingOverlay').classList.remove('hidden');
-            
-            // Simpan indeks gambar yang sedang dibuka oleh user agar bisa dikembalikan nanti
-            const originalIndex = currentEditorImageIndex;
-
-            try {
-                let processed = 0;
-                let failed = 0;
-                
-                // Matikan sementara notifikasi agar layar tidak penuh dengan popup saat proses batch
-                const originalShowNotification = showNotification;
-                showNotification = () => {}; 
-
-                for (let i = 0; i < foundImages.length; i++) {
-                    const imgData = foundImages[i];
-                    document.getElementById('loadingStatus').innerText = `Batch Processing: ${i + 1} / ${foundImages.length}`;
-
-                    // 1. Muat gambar ke kanvas secara programatis (tanpa reset UI secara penuh)
-                    const img = new Image();
-                    await new Promise((resolve, reject) => {
-                        img.onload = resolve;
-                        img.onerror = reject;
-                        img.src = imgData.url; 
-                    });
-                    
-                    editorCanvas.width = img.width;
-                    editorCanvas.height = img.height;
-                    ctx.clearRect(0, 0, img.width, img.height);
-                    ctx.drawImage(img, 0, 0);
-
-                    // 2. Terapkan Shader menggunakan fungsi asli (Pastikan fungsi asli ini sudah ada di kodemu)
-                    // Hapus baris peringatan notifikasi di applyShader untuk batch ini
-                    await applyShader(currentActiveShader); 
-
-                    // 3. Lakukan Injeksi (Kompresi & Simpan) seperti menekan tombol disket ungu
-                    const w = editorCanvas.width; 
-                    const h = editorCanvas.height;
-                    const buffer = new Uint8Array(ctx.getImageData(0,0,w,h).data).buffer;
-                    
-                    // Gunakan batas ukuran hanya jika ini gambar embed
-                    const bestBuffer = await smartCompress(buffer, w, h, imgData.isHidden ? imgData.size : null);
-
-                    if (bestBuffer) {
-                        const blob = new Blob([bestBuffer], {type:'image/png'});
-                        if(imgData.url) URL.revokeObjectURL(imgData.url);
-                        imgData.modifiedData = blob;
-                        imgData.blob = blob;
-                        imgData.url = URL.createObjectURL(blob);
-                        imgData.modified = true;
-                        imgData.isBatch = true;
-                        if(imgData.draftData) delete imgData.draftData;
-                        processed++;
-                    } else {
-                        failed++;
-                    }
-                }
-                
-                // Kembalikan fungsi notifikasi seperti semula
-                showNotification = originalShowNotification;
-                
-                // Kembalikan Editor ke gambar awal yang sedang dibuka user
-                if (originalIndex > -1) {
-                    loadToEditor(originalIndex);
-                }
-
-                let msg = `Sukses: ${processed} gambar diterapkan.`;
-                if(failed > 0) msg += ` Gagal: ${failed} (Terlalu besar untuk slot embed).`;
-                showNotification(msg, failed > 0 ? "warning" : "success");
-                
-                renderList(); // Segarkan UI Daftar Gambar
-                
-            } catch (e) {
-                showNotification("Batch Error: " + e.message, "error");
-            } finally {
-                document.getElementById('loadingOverlay').classList.add('hidden');
-            }
-        };
+        
     </script>
 </body>
 </html>
