@@ -241,7 +241,7 @@
     <header class="h-14 shrink-0 flex items-center justify-between px-4 bg-glass backdrop-blur-md border-b border-glassBorder z-[60] relative shadow-lg">
         <div id="header-logo-area" class="flex items-center gap-2 transition-opacity duration-300">
             <div class="w-8 h-8 rounded-lg grad-amber flex items-center justify-center text-white font-bold text-xs shadow-lg shadow-amber-500/20"><i class="fa-solid fa-crosshairs"></i></div>
-            <h1 class="font-bold text-base tracking-tight text-slate-100">J2ME </span> <span class="text-amber-500">Asset Hunter</span> <span class="text-xs white-500">Studio</span> <span class="text-[9px] text-slate-500 bg-slate-800 px-1 rounded ml-1">V9.7.5</span></h1>
+            <h1 class="font-bold text-base tracking-tight text-slate-100">J2ME </span> <span class="text-amber-500">Asset Hunter</span> <span class="text-xs white-500">Studio</span> <span class="text-[9px] text-slate-500 bg-slate-800 px-1 rounded ml-1">New Features</span></h1>
         </div>
 
         <div id="header-editor-area" class="hidden absolute inset-0 flex items-center justify-between px-3 w-full bg-slate-900/95 backdrop-blur-md">
@@ -326,7 +326,10 @@
             <!-- FIX: Kursor sekarang ada di Viewport (layer statis), bukan di Wrapper (layer zoom) -->
             <div id="canvasViewport" class="flex-1 relative overflow-hidden touch-none flex items-center justify-center bg-slate-950 w-full transition-all duration-300" style="height: 100%;">
                 
+                <div id="shaderBadgesContainer" class="absolute top-3 left-3 z-40 flex flex-col gap-1.5 pointer-events-none empty:hidden max-w-[60%]"></div>
+
                 <div id="canvasWrapper" class="relative shadow-2xl origin-center will-change-transform rounded-sm ring-1 ring-white/5">
+				<div class="relative w-full flex justify-center">
                     <canvas id="editorCanvas" class="block"></canvas>
                     <div id="selectionBox" class="absolute border border-dashed border-red-400 bg-red-500/10 hidden z-20 pointer-events-none box-border"></div>
                     <div id="guideX" class="guide-line w-full h-[1px] top-1/2 left-0 transform -translate-y-1/2"></div>
@@ -347,10 +350,14 @@
             <div class="absolute top-4 right-3 flex flex-col gap-3 z-30 pointer-events-none">
                 <div class="flex flex-col gap-2 pointer-events-auto items-end">
                     <!-- NEW UNDO POS: Top of the group, above Reset -->
-                    <button onclick="undo()" id="btnUndo" disabled class="w-10 h-10 rounded-full grad-slate border border-slate-600 text-slate-200 disabled:opacity-30 flex items-center justify-center transition-all shadow-xl active:scale-95 mb-2">
-                         <i class="fa-solid fa-rotate-left text-xs"></i>
+					<button onclick="resetEditor()" class="px-3 py-1.5 bg-red-900/50 hover:bg-red-700 border border-red-500/50 rounded text-xs text-white flex items-center gap-1 transition-colors">
+                        <i class="fa-solid fa-trash-arrow-up"></i> Reset
                     </button>
 
+                    <button onclick="undo()" id="btnUndo" disabled class="w-10 h-10 rounded-full grad-slate border border-slate-600 text-slate-200 disabled:opacity-30 flex items-center justify-center transition-all shadow-xl active:scale-95 mb-2">
+                         <i class="fa-solid fa-rotate-left text-xs"></i>
+                    </button>					
+					
                     <button onclick="resetZoom()" class="w-10 h-10 rounded-full grad-slate border border-slate-600 text-slate-200 flex items-center justify-center shadow-lg active:scale-95 transition-all">
                         <i class="fa-solid fa-compress text-xs"></i>
                     </button>
@@ -470,22 +477,37 @@
                                 <button onclick="applyShader('fxaa')" class="py-2 bg-slate-800 border border-slate-700 rounded-lg text-[9px] text-slate-300 flex flex-col items-center justify-center gap-1 active:bg-slate-700 hover:border-purple-500/50">
                                     <i class="fa-solid fa-droplet text-purple-400 text-[10px]"></i> Halus
                                 </button>
-                                <button onclick="applyShader('crt')" class="py-2 bg-slate-800 border border-slate-700 rounded-lg text-[9px] text-slate-300 flex flex-col items-center justify-center gap-1 active:bg-slate-700 hover:border-cyan-500/50">
-                                    <i class="fa-solid fa-tv text-cyan-400 text-[10px]"></i> CRT
+                                <button onclick="openOutlineMenu()" class="py-2 bg-slate-800 border border-slate-700 rounded-lg text-[9px] text-slate-300 flex flex-col items-center justify-center gap-1 active:bg-slate-700 hover:border-white/50">
+                                    <i class="fa-regular fa-square text-white text-[10px]"></i> Outline
                                 </button>
                              </div>
                              <div class="grid grid-cols-4 gap-2">
                                 <button onclick="applyShader('shader_5xbr')" class="py-2 bg-slate-800 border border-slate-700 rounded-lg text-[9px] text-slate-300 flex flex-col items-center justify-center gap-1 active:bg-slate-700 hover:border-gray-500/50">
                                     <i class="fa-solid fa-vector-square text-gray-400 text-[10px]"></i> 5xBR
                                 </button>
-                                <button onclick="applyShader('shader_dot')" class="py-2 bg-slate-800 border border-slate-700 rounded-lg text-[9px] text-slate-300 flex flex-col items-center justify-center gap-1 active:bg-slate-700 hover:border-orange-500/50">
-                                    <i class="fa-solid fa-border-all text-orange-400 text-[10px]"></i> Dot
+                                <button onclick="applyShader('cartoon')" class="py-2 bg-slate-800 border border-slate-700 rounded-lg text-[9px] text-slate-300 flex flex-col items-center justify-center gap-1 active:bg-slate-700 hover:border-orange-500/50">
+                                    <i class="fa-solid fa-palette text-orange-400 text-[10px]"></i> Cartoon
                                 </button>
                                 <button onclick="applyShader('cool')" class="py-2 bg-slate-800 border border-slate-700 rounded-lg text-[9px] text-slate-300 flex flex-col items-center justify-center gap-1 active:bg-slate-700 hover:border-blue-500/50">
                                     <i class="fa-solid fa-snowflake text-blue-400 text-[10px]"></i> Cool
                                 </button>
-                                <button onclick="openOutlineMenu()" class="py-2 bg-slate-800 border border-slate-700 rounded-lg text-[9px] text-slate-300 flex flex-col items-center justify-center gap-1 active:bg-slate-700 hover:border-white/50">
-                                    <i class="fa-regular fa-square text-white text-[10px]"></i> Outline
+                                <button onclick="applyShader('retro_color')" class="py-2 bg-slate-800 border border-slate-700 rounded-lg text-[9px] text-slate-300 flex flex-col items-center justify-center gap-1 active:bg-slate-700 hover:border-pink-500/50">
+                                    <i class="fa-solid fa-mobile-screen text-pink-400 text-[10px]"></i> Retro J2ME
+                                </button>
+                             </div>
+							 <span class="text-[9px] text-emerald-500 block mb-2 mt-3 font-bold uppercase tracking-wider"><i class="fa-solid fa-shield-halved"></i> Aman Untuk Embed (Palet)</span>
+                             <div class="grid grid-cols-4 gap-2 mb-2">
+                                <button onclick="applyShader('palette_bright')" class="py-2 bg-slate-800 border border-emerald-700/50 rounded-lg text-[9px] text-yellow-400 flex flex-col items-center justify-center gap-1 active:bg-slate-700 hover:bg-slate-700">
+                                    <i class="fa-solid fa-sun text-[10px]"></i> Terang
+                                </button>
+                                <button onclick="applyShader('palette_enhance')" class="py-2 bg-slate-800 border border-emerald-700/50 rounded-lg text-[9px] text-blue-400 flex flex-col items-center justify-center gap-1 active:bg-slate-700 hover:bg-slate-700">
+                                    <i class="fa-solid fa-adjust text-[10px]"></i> Tegas
+                                </button>
+                                <button onclick="applyShader('palette_warm')" class="py-2 bg-slate-800 border border-emerald-700/50 rounded-lg text-[9px] text-orange-400 flex flex-col items-center justify-center gap-1 active:bg-slate-700 hover:bg-slate-700">
+                                    <i class="fa-solid fa-cloud-sun text-[10px]"></i> Hangat
+                                </button>
+                                <button onclick="applyShader('palette_outline')" class="py-2 bg-slate-800 border border-emerald-700/50 rounded-lg text-[9px] text-white flex flex-col items-center justify-center gap-1 active:bg-slate-700 hover:bg-slate-700">
+                                    <i class="fa-solid fa-user-astronaut text-[10px]"></i> Outline
                                 </button>
                              </div>
                         </div>
@@ -687,7 +709,85 @@
         const quickScrollControls = document.getElementById('quickScrollControls');
 
         let overlaySyncId = null;
+		
+		// --- SISTEM RIWAYAT SHADER & KAPSUL ---
+        window.appliedShadersList = [];
+        window.shaderBadgeInfo = {
+            'palette_bright': { name: 'Terang', color: 'bg-yellow-500' },
+            'palette_enhance': { name: 'Tegas', color: 'bg-blue-500' },
+            'palette_warm': { name: 'Hangat', color: 'bg-orange-500' },
+            'palette_outline': { name: 'Outline', color: 'bg-gray-600' },
+            'cartoon': { name: 'Cartoon', color: 'bg-orange-400' },
+            'retro_color': { name: 'Retro', color: 'bg-pink-500' },
+            'fxaa': { name: 'Smooth', color: 'bg-cyan-500' },
+            'shader_5xbr': { name: '5xBR', color: 'bg-purple-500' },
+            'natural': { name: 'Natural', color: 'bg-emerald-500' },
+            'grayscale': { name: 'B&W', color: 'bg-slate-500' },
+            'cool': { name: 'Cool', color: 'bg-sky-500' },
+            'smart_contrast': { name: 'Contrast', color: 'bg-indigo-500' }
+        };
 
+        window.renderShaderBadges = () => {
+            const container = document.getElementById('shaderBadgesContainer');
+            if (!container) return;
+            container.innerHTML = appliedShadersList.map(type => {
+                const info = shaderBadgeInfo[type] || { name: type, color: 'bg-gray-500' };
+                return `<span class="px-2 py-0.5 text-[9px] font-bold text-white rounded-full ${info.color} shadow-sm border border-white/20 uppercase tracking-wider opacity-90">${info.name}</span>`;
+            }).join('');
+        };
+
+        // Fungsi Reset Instan (Perbaikan Memori Nyangkut)
+        window.resetEditor = () => {
+            if (!originalImportedImage) return;
+
+            // Bersihkan draf memori yang tersimpan agar efek tidak nyangkut!
+            if (currentEditorImageIndex > -1) {
+                const target = foundImages[currentEditorImageIndex];
+                if (target.draftData) delete target.draftData;
+                if (target.draftUndoStack) delete target.draftUndoStack;
+                if (target.draftText) delete target.draftText;
+                if (target.draftDims) delete target.draftDims;
+            }
+
+            const resetCanvasUI = (img) => {
+                editorCanvas.width = img.width;
+                editorCanvas.height = img.height;
+                document.getElementById('resizeW').value = img.width;
+                document.getElementById('resizeH').value = img.height;
+                
+                ctx.imageSmoothingEnabled = false; 
+                ctx.clearRect(0, 0, img.width, img.height);
+                ctx.drawImage(img, 0, 0);
+                
+                originalImportedImage = document.createElement('canvas');
+                originalImportedImage.width = img.width; 
+                originalImportedImage.height = img.height;
+                originalImportedImage.getContext('2d').drawImage(img, 0, 0);
+                
+                undoStack = [];
+                document.getElementById('btnUndo').disabled = true;
+                if (typeof redoStack !== 'undefined') redoStack = [];
+                
+                appliedShadersList = [];
+                renderShaderBadges();
+                currentActiveShader = null;
+                btnApplyAll.classList.add('hidden');
+                
+                showNotification("Gambar di-reset bersih ke kondisi awal!", "success");
+            };
+
+            if (currentEditorImageIndex > -1) {
+                // Muat ulang gambar murni dari URL sumber (mengabaikan kanvas)
+                const img = new Image();
+                img.onload = () => resetCanvasUI(img);
+                img.src = foundImages[currentEditorImageIndex].url;
+            } else {
+                // Jika ini adalah gambar yang diimpor manual
+                resetCanvasUI(originalImportedImage);
+            }
+        };
+
+        
         // --- BACK BUTTON LOGIC ---
         let backPressTimer = null;
         window.history.pushState(null, null, window.location.href);
@@ -1011,7 +1111,24 @@
             });
         }
         
-        function saveFileAPK(blob, fileName) {
+        async function saveFileAPK(blob, fileName) {
+            // SOLUSI 1: Gunakan Web Share API (Sangat ampuh menembus batasan APK WebView)
+            // Ini akan memunculkan menu "Bagikan/Save to Device" bawaan Android.
+            if (navigator.canShare && navigator.canShare({ files: [new File([blob], fileName, { type: blob.type })] })) {
+                try {
+                    const file = new File([blob], fileName, { type: blob.type || 'application/java-archive' });
+                    await navigator.share({
+                        title: 'Simpan Modifikasi J2ME',
+                        text: 'Simpan file J2ME yang telah diedit ke memori perangkat.',
+                        files: [file]
+                    });
+                    return; // Jika berhasil dibagikan/disimpan, hentikan proses di sini.
+                } catch (err) {
+                    console.log("Web Share dibatalkan atau tidak didukung penuh, mencoba fallback...", err);
+                }
+            }
+
+            // SOLUSI 2: Fallback ke metode Unduhan Klasik (Base64) jika dibuka di browser PC biasa
             const reader = new FileReader();
             reader.onload = function(e) {
                 const a = document.createElement('a');
@@ -1022,7 +1139,6 @@
                 a.click();
                 setTimeout(() => {
                     document.body.removeChild(a);
-                    URL.revokeObjectURL(a.href);
                 }, 100);
             };
             reader.readAsDataURL(blob);
@@ -1135,6 +1251,11 @@
         function handlePointerDown(e) {
             if(e.target.closest('#textOverlay')) return; 
 
+            // FIX UNTUK PC: Cegah browser melakukan "Native Image Drag" yang memutus fungsi geser
+            if (e.type === 'mousedown') {
+                e.preventDefault();
+            }
+
             if(eyedropperActive) {
                 const clientX = e.touches ? e.touches[0].clientX : e.clientX;
                 const clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -1143,11 +1264,9 @@
                 return;
             }
 
-            // FIX: Improved Pinch Zoom Start Detection
             if(e.touches && e.touches.length === 2) {
                 isTouchZooming = true;
                 lastTouchDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
-                // Prevent starting drawing when zooming
                 isDrawing = false;
                 return;
             }
@@ -1278,6 +1397,19 @@
         window.addEventListener('touchmove', handlePointerMove, {passive: false});
         window.addEventListener('mouseup', handlePointerUp);
         window.addEventListener('touchend', handlePointerUp);
+		
+		// FIX UNTUK PC: Tambahkan kontrol Zoom menggunakan Roda/Scroll Mouse
+        canvasViewport.addEventListener('wheel', (e) => {
+            e.preventDefault(); // Mencegah halaman web ikut ter-scroll
+            const zoomSpeed = 0.1;
+            // e.deltaY > 0 berarti scroll ke bawah (zoom out), sebaliknya zoom in
+            const delta = e.deltaY > 0 ? -1 : 1; 
+            
+            let newScale = scale + (delta * zoomSpeed * scale * 2);
+            newScale = Math.max(0.1, Math.min(newScale, 10)); // Batas zoom 0.1x hingga 10x
+            
+            applyZoom(newScale);
+        }, {passive: false});
 
         window.toggleToolState = (toolName, isActive) => {
             disableEyedropper(); 
@@ -1777,23 +1909,28 @@
             ctx.drawImage(finalCanvas, 0, 0);
         };
 
-        // --- FIXED: SMART COMPRESSION (MIN DEPTH 32) ---
+        // --- FIXED: SMART COMPRESSION (VIP STANDALONE) ---
         async function smartCompress(buffer, w, h, targetLimit) {
             if (!UPNG) { throw new Error("UPNG Library missing"); }
             
-            // Removed low depths (16/8/4/2) to prevent solid color corruption
-            const depths = [0, 64, 32, 16, 8]; 
+            // PENTING: Jika Standalone (tanpa targetLimit), gunakan HANYA Kualitas Tertinggi (0 = True Color).
+            // Jika Embed (punya targetLimit), izinkan kompresi ekstrem hingga 2 warna agar muat.
+            const depths = targetLimit ? [0, 256, 128, 64, 32, 16, 8, 4, 2] : [0]; 
+            
             let bestRes = null;
 
             for (let d of depths) {
                 const png = UPNG.encode([buffer], w, h, d);
+                // Langsung kembalikan jika muat di slot embed
                 if (targetLimit && png.byteLength <= targetLimit) {
                     return png;
                 }
+                // Simpan yang terkecil sebagai cadangan
                 if (!bestRes || png.byteLength < bestRes.byteLength) {
                     bestRes = png;
                 }
             }
+            // Jika Embed dan masih kebesaran, tolak
             if (targetLimit && bestRes && bestRes.byteLength > targetLimit) {
                 return null;
             }
@@ -1941,8 +2078,9 @@
             
             selectionBox.style.display = 'none'; selectionActive = false; brushCursor.style.display = 'none';
             document.getElementById('loadingOverlay').classList.remove('hidden');
-            document.getElementById('loadingStatus').innerText = "Editor: Super Sampling...";
+            document.getElementById('loadingStatus').innerText = "Editor: Kompresi Cerdas...";
             await new Promise(r => setTimeout(r, 100)); 
+            
             try {
                 if(textState.visible || isTextVirtual) {
                     await rasterizeTextLayer();
@@ -1950,27 +2088,66 @@
                 const w = editorCanvas.width; const h = editorCanvas.height;
                 const target = foundImages[currentEditorImageIndex];
                 
-                // FIX: Buffer Copy
-                const buffer = new Uint8Array(ctx.getImageData(0,0,w,h).data).buffer;
+                const imageData = ctx.getImageData(0,0,w,h);
+                const data = imageData.data;
+
+                // Hack Alpha untuk Embed
+                if (target.isHidden) {
+                    for(let i=0; i<data.length; i+=4) {
+                        if (data[i+3] < 128) {
+                            data[i] = 0; data[i+1] = 0; data[i+2] = 0; data[i+3] = 0; 
+                        } else {
+                            data[i+3] = 255; 
+                        }
+                    }
+                }
                 
-                document.getElementById('loadingStatus').innerText = "Editor: Kompresi Cerdas...";
-                
+                const buffer = new Uint8Array(data).buffer;
                 const bestBuffer = await smartCompress(buffer, w, h, target.isHidden ? target.size : null);
 
-                document.getElementById('loadingOverlay').classList.add('hidden');
                 if (bestBuffer) {
-                    showNotification("Disimpan ke Daftar (Siap Ekspor)", "success");
                     const blob = new Blob([bestBuffer], {type:'image/png'});
                     if(target.url) URL.revokeObjectURL(target.url);
                     target.modifiedData = blob; target.blob = blob; target.url = URL.createObjectURL(blob); target.modified = true;
                     if(target.draftData) delete target.draftData;
                     if(target.draftUndoStack) delete target.draftUndoStack;
                     renderList(); 
-                    showNotification("Perubahan disimpan! Lanjut edit...", "success");
+
+                    // --- FITUR AUTO-RELOAD EDITOR ---
+                    const newImg = new Image();
+                    newImg.onload = () => {
+                        ctx.imageSmoothingEnabled = false; // Anti-blur!
+                        ctx.clearRect(0, 0, w, h);
+                        ctx.drawImage(newImg, 0, 0);
+                        
+                        // FIX: Simpan sebagai kanvas solid, BUKAN sebagai tag <image> 
+                        // agar tidak berubah warna saat di-reset nanti!
+                        const pristineCanvas = document.createElement('canvas');
+                        pristineCanvas.width = w; pristineCanvas.height = h;
+                        const pCtx = pristineCanvas.getContext('2d');
+                        pCtx.imageSmoothingEnabled = false;
+                        pCtx.drawImage(newImg, 0, 0);
+                        originalImportedImage = pristineCanvas; 
+                        
+                        // Bersihkan riwayat & kapsul
+                        if (typeof undoStack !== 'undefined') undoStack = [];
+                        if (typeof redoStack !== 'undefined') redoStack = [];
+                        appliedShadersList = [];
+                        renderShaderBadges();
+                        
+                        document.getElementById('loadingOverlay').classList.add('hidden');
+                        showNotification("Injeksi Sukses! Editor langsung diperbarui.", "success");
+                    };
+                    newImg.src = target.url;
+                    
                 } else {
-                    showNotification(`Gagal: Ukuran hasil edit masih terlalu besar untuk slot ini.`, "error");
+                    document.getElementById('loadingOverlay').classList.add('hidden');
+                    showNotification(`Gagal: Ukuran hasil melampaui batas slot embed.`, "error");
                 }
-            } catch(e) { document.getElementById('loadingOverlay').classList.add('hidden'); showNotification("Error: " + e.message, "error"); }
+            } catch(e) { 
+                document.getElementById('loadingOverlay').classList.add('hidden'); 
+                showNotification("Error: " + e.message, "error"); 
+            }
         }
 
         window.revertImage = (index) => {
@@ -2047,6 +2224,8 @@
              if (undoStack.length >= MAX_UNDO) undoStack.shift();
              let state = {
                  data: ctx.getImageData(0, 0, editorCanvas.width, editorCanvas.height),
+                 // SINKRONISASI KAPSUL: Simpan daftar kapsul saat ini ke dalam memori Undo!
+                 badges: [...(window.appliedShadersList || [])], 
                  textData: withText ? {
                      state: JSON.parse(JSON.stringify(textState)),
                      content: textInner.innerText,
@@ -2072,6 +2251,11 @@
                     document.getElementById('resizeH').value = state.data.height;
                 }
                 ctx.putImageData(state.data, 0, 0); 
+                
+                // KEMBALIKAN KAPSUL: Tarik daftar kapsul dari memori Undo yang dipanggil
+                window.appliedShadersList = state.badges || [];
+                window.renderShaderBadges();
+
                 if (state.textData) {
                     textState = state.textData.state;
                     textInner.innerText = state.textData.content;
@@ -2258,7 +2442,32 @@
 
         window.applyShader = async (type) => {
             if (!originalImportedImage) { showNotification("Error: Tidak ada data asli!", "error"); return; }
+            
+            const targetImg = currentEditorImageIndex > -1 ? foundImages[currentEditorImageIndex] : null;
+
+            // --- 0. SOLUSI ANTI-KEDIP & ANTI-FREEZE ---
+            // Hanya aktifkan layar loading untuk shader berat yang butuh waktu proses lama.
+            // Shader warna ringan akan dieksekusi instan tanpa kedipan!
+            const slowShaders = ['fxaa', 'shader_5xbr', 'cartoon'];
+            const isSlow = slowShaders.includes(type);
+
+            if (isSlow) {
+                document.getElementById('loadingOverlay').classList.remove('hidden');
+                document.getElementById('loadingStatus').innerText = "Memproses Algoritma...";
+                await new Promise(r => setTimeout(r, 50)); 
+            }
+
+            // --- 1. FITUR SMART WARNING (NOTIFIKASI MERAH) ---
+            const heavyShaders = ['natural', 'fxaa', 'shader_5xbr', 'smart_contrast', 'cartoon', 'retro_color', 'cool'];
+            
+            if (targetImg && targetImg.isHidden && heavyShaders.includes(type)) {
+                showNotification("⛔ PERINGATAN: Shader ini membuat ukuran file Embed BENGKAK! Gunakan fitur Palet.", "error");
+                await new Promise(r => setTimeout(r, 2000));
+            }
+
             saveState();
+			appliedShadersList.push(type); 
+            renderShaderBadges();
             currentActiveShader = type; 
             btnApplyAll.classList.remove('hidden'); 
 
@@ -2267,7 +2476,138 @@
             const imgData = ctx.getImageData(0, 0, w, h); 
             const d = imgData.data;
 
-            if (type === 'natural') {
+            // --- 2. LOGIKA MANIPULASI PALET (AMAN UNTUK EMBED) ---
+            if (type === 'palette_bright') {
+                const sat = 1.4; const bright = 15; const detailLevel = 4; 
+                let colorMap = new Map();
+                for(let i=0; i<d.length; i+=4) {
+                    if (d[i+3] < 50) continue; 
+                    let key = `${d[i]},${d[i+1]},${d[i+2]}`;
+                    if (!colorMap.has(key)) {
+                        let r = d[i], g = d[i+1], b = d[i+2];
+                        let luma = 0.299*r + 0.587*g + 0.114*b;
+                        let nr = luma + (r - luma) * sat + bright;
+                        let ng = luma + (g - luma) * sat + bright;
+                        let nb = luma + (b - luma) * sat + bright;
+                        nr = Math.max(0, Math.min(255, Math.round(nr / detailLevel) * detailLevel));
+                        ng = Math.max(0, Math.min(255, Math.round(ng / detailLevel) * detailLevel));
+                        nb = Math.max(0, Math.min(255, Math.round(nb / detailLevel) * detailLevel));
+                        colorMap.set(key, [nr, ng, nb]);
+                    }
+                    let newColor = colorMap.get(key);
+                    d[i] = newColor[0]; d[i+1] = newColor[1]; d[i+2] = newColor[2];
+                }
+                ctx.putImageData(imgData, 0, 0);
+                showNotification("Terang & Hidup diaplikasikan", "success");
+            }
+            else if (type === 'palette_enhance') {
+                const contrast = 60; 
+                const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+                const detailLevel = 8; 
+                let colorMap = new Map();
+                for(let i=0; i<d.length; i+=4) {
+                    if (d[i+3] < 50) continue; 
+                    let key = `${d[i]},${d[i+1]},${d[i+2]}`;
+                    if (!colorMap.has(key)) {
+                        let r = d[i], g = d[i+1], b = d[i+2];
+                        let nr = factor * (r - 128) + 128; let ng = factor * (g - 128) + 128; let nb = factor * (b - 128) + 128;
+                        nr = Math.max(0, Math.min(255, Math.round(nr / detailLevel) * detailLevel));
+                        ng = Math.max(0, Math.min(255, Math.round(ng / detailLevel) * detailLevel));
+                        nb = Math.max(0, Math.min(255, Math.round(nb / detailLevel) * detailLevel));
+                        colorMap.set(key, [nr, ng, nb]);
+                    }
+                    let newColor = colorMap.get(key);
+                    d[i] = newColor[0]; d[i+1] = newColor[1]; d[i+2] = newColor[2];
+                }
+                ctx.putImageData(imgData, 0, 0);
+                showNotification("Pertegas (Anti-Redup) diaplikasikan", "success");
+            }
+            else if (type === 'palette_warm') {
+                const detailLevel = 4;
+                let colorMap = new Map();
+                for(let i=0; i<d.length; i+=4) {
+                    if (d[i+3] < 50) continue; 
+                    let key = `${d[i]},${d[i+1]},${d[i+2]}`;
+                    if (!colorMap.has(key)) {
+                        let r = d[i], g = d[i+1], b = d[i+2];
+                        let luma = 0.299*r + 0.587*g + 0.114*b;
+                        let nr = r * 0.5 + luma * 0.5 + 40; let ng = g * 0.5 + luma * 0.5 + 15; let nb = b * 0.5 + luma * 0.5 - 30; 
+                        nr = Math.max(0, Math.min(255, Math.round(nr / detailLevel) * detailLevel));
+                        ng = Math.max(0, Math.min(255, Math.round(ng / detailLevel) * detailLevel));
+                        nb = Math.max(0, Math.min(255, Math.round(nb / detailLevel) * detailLevel));
+                        colorMap.set(key, [nr, ng, nb]);
+                    }
+                    let newColor = colorMap.get(key);
+                    d[i] = newColor[0]; d[i+1] = newColor[1]; d[i+2] = newColor[2];
+                }
+                ctx.putImageData(imgData, 0, 0);
+                showNotification("Suasana Senja/Hangat diaplikasikan", "success");
+            }
+            else if (type === 'palette_outline') {
+                const copy = new Uint8ClampedArray(d);
+                let outlineColor = [70, 70, 70]; 
+                for(let y=0; y<h; y++) {
+                    for(let x=0; x<w; x++) {
+                        const idx = (y * w + x) * 4;
+                        if (copy[idx+3] < 50) { 
+                             let neighborFound = false;
+                             const neighbors = [[0,-1], [0,1], [-1,0], [1,0]]; 
+                             for(let n of neighbors) {
+                                 const nx = x+n[0]; const ny = y+n[1];
+                                 if(nx>=0 && nx<w && ny>=0 && ny<h) {
+                                     const nIdx = (ny * w + nx) * 4;
+                                     if(copy[nIdx+3] > 100) { neighborFound = true; break; }
+                                 }
+                             }
+                             if(neighborFound) {
+                                 d[idx] = outlineColor[0]; d[idx+1] = outlineColor[1]; d[idx+2] = outlineColor[2]; d[idx+3] = 255; 
+                             }
+                        }
+                    }
+                }
+                ctx.putImageData(imgData, 0, 0);
+                showNotification("Outline Halus (Embed Safe) diaplikasikan", "success");
+            }
+
+            // --- 3. LOGIKA SHADER STANDALONE ---
+            else if (type === 'cartoon') {
+                const copy = new Uint8ClampedArray(d);
+                const step = 48; 
+                for (let y = 0; y < h; y++) {
+                    for (let x = 0; x < w; x++) {
+                        const i = (y * w + x) * 4;
+                        if (d[i+3] === 0) continue;
+
+                        d[i] = Math.round(d[i] / step) * step; d[i+1] = Math.round(d[i+1] / step) * step; d[i+2] = Math.round(d[i+2] / step) * step;
+                        if (x < w - 1 && y < h - 1) {
+                            const iRight = (y * w + (x + 1)) * 4; const iBottom = ((y + 1) * w + x) * 4;
+                            const diffX = Math.abs(copy[i] - copy[iRight]) + Math.abs(copy[i+1] - copy[iRight+1]) + Math.abs(copy[i+2] - copy[iRight+2]);
+                            const diffY = Math.abs(copy[i] - copy[iBottom]) + Math.abs(copy[i+1] - copy[iBottom+1]) + Math.abs(copy[i+2] - copy[iBottom+2]);
+                            
+                            if (diffX > 80 || diffY > 80) {
+                                d[i] = Math.max(0, d[i] - 70); d[i+1] = Math.max(0, d[i+1] - 70); d[i+2] = Math.max(0, d[i+2] - 70);
+                            }
+                        }
+                    }
+                }
+                ctx.putImageData(imgData, 0, 0);
+                showNotification("Cartoon Cel-Shading diaplikasikan", "success");
+            }
+            else if (type === 'retro_color') {
+                const step = 51; const sat = 1.3; 
+                for(let i=0; i<d.length; i+=4) {
+                    if (d[i+3] === 0) continue;
+                    let r = d[i], g = d[i+1], b = d[i+2];
+                    let luma = 0.299*r + 0.587*g + 0.114*b;
+                    r = luma + (r - luma) * sat; g = luma + (g - luma) * sat; b = luma + (b - luma) * sat;
+                    d[i] = Math.max(0, Math.min(255, Math.round(r / step) * step));
+                    d[i+1] = Math.max(0, Math.min(255, Math.round(g / step) * step));
+                    d[i+2] = Math.max(0, Math.min(255, Math.round(b / step) * step));
+                }
+                ctx.putImageData(imgData, 0, 0);
+                showNotification("Retro Nokia 256-Color diaplikasikan", "success");
+            }
+            else if (type === 'natural') {
                 const sat = 1.3; const con = 10;  
                 const factor = (259 * (con + 255)) / (255 * (259 - con));
                 for(let i=0; i<d.length; i+=4) {
@@ -2289,136 +2629,12 @@
                 ctx.putImageData(imgData, 0, 0);
                 showNotification("Grayscale Applied", "success");
             }
-            else if (type === 'shader_dot') {
-                 // Dot Matrix / Grid Effect (Warmth Replacement)
-                 for(let y=0; y<h; y++) {
-                     for(let x=0; x<w; x++) {
-                         const idx = (y * w + x) * 4;
-                         // Darken every alternate pixel in a checkerboard or grid pattern
-                         if ((x + y) % 2 === 0) {
-                             d[idx] = Math.max(0, d[idx] - 30);
-                             d[idx+1] = Math.max(0, d[idx+1] - 30);
-                             d[idx+2] = Math.max(0, d[idx+2] - 30);
-                         } else {
-                             // Slight boost to brightness to compensate contrast
-                             d[idx] = Math.min(255, d[idx] + 10);
-                             d[idx+1] = Math.min(255, d[idx+1] + 10);
-                             d[idx+2] = Math.min(255, d[idx+2] + 10);
-                         }
-                     }
-                 }
-                ctx.putImageData(imgData, 0, 0);
-                showNotification("Dot Matrix Applied", "success");
-            }
-             else if (type === 'cool') {
+            else if (type === 'cool') {
                  for(let i=0; i<d.length; i+=4) {
-                    d[i] = Math.max(0, d[i] - 10); 
-                    d[i+2] = Math.min(255, d[i+2] + 25); 
+                    d[i] = Math.max(0, d[i] - 10); d[i+2] = Math.min(255, d[i+2] + 25); 
                 }
                 ctx.putImageData(imgData, 0, 0);
                 showNotification("Cool Cyber Applied", "success");
-            }
-            else if (type.startsWith('outline')) {
-                let r=255, g=255, b=255; 
-                let label = "Putih";
-                if(type === 'outline_black') { r=0; g=0; b=0; label = "Hitam"; }
-                
-                const copy = new Uint8ClampedArray(d);
-                for(let y=0; y<h; y++) {
-                    for(let x=0; x<w; x++) {
-                        const idx = (y * w + x) * 4;
-                        if (copy[idx+3] === 0) { 
-                             let neighborFound = false;
-                             const neighbors = [[0,-1], [0,1], [-1,0], [1,0]];
-                             for(let n of neighbors) {
-                                 const nx = x+n[0]; const ny = y+n[1];
-                                 if(nx>=0 && nx<w && ny>=0 && ny<h) {
-                                     const nIdx = (ny * w + nx) * 4;
-                                     if(copy[nIdx+3] > 10) { 
-                                         neighborFound = true; break;
-                                     }
-                                 }
-                             }
-                             if(neighborFound) {
-                                 d[idx] = r; d[idx+1] = g; d[idx+2] = b; d[idx+3] = 255; 
-                             }
-                        }
-                    }
-                }
-                ctx.putImageData(imgData, 0, 0);
-                showNotification(`Outline ${label} Applied`, "success");
-            }
-            else if (type === 'crt') {
-                for (let y = 0; y < h; y++) {
-                    if (y % 2 === 0) { 
-                        for (let x = 0; x < w; x++) {
-                            const i = (y * w + x) * 4;
-                            d[i] = d[i] * 0.7; d[i+1] = d[i+1] * 0.7; d[i+2] = d[i+2] * 0.7; 
-                        }
-                    }
-                }
-                ctx.putImageData(imgData, 0, 0);
-                showNotification("CRT Scanline Applied", "success");
-            }
-            else if (type === 'fxaa') {
-                const output = ctx.createImageData(w, h);
-                const od = output.data;
-                for (let y = 0; y < h; y++) {
-                    for (let x = 0; x < w; x++) {
-                        const i = (y * w + x) * 4;
-                        let r=0, g=0, b=0, a=0;
-                        let weightSum = 0;
-                        const neighbors = [{dx:0, dy:-1, w:1}, {dx:-1, dy:0, w:1}, {dx:0, dy:0, w:4}, {dx:1, dy:0, w:1}, {dx:0, dy:1, w:1}];
-                        for(let n of neighbors) {
-                            const nx = x + n.dx; const ny = y + n.dy;
-                            if(nx>=0 && nx<w && ny>=0 && ny<h) {
-                                const ni = (ny * w + nx) * 4;
-                                r += d[ni] * n.w; g += d[ni+1] * n.w; b += d[ni+2] * n.w; a += d[ni+3] * n.w;
-                                weightSum += n.w;
-                            }
-                        }
-                        od[i] = r / weightSum; od[i+1] = g / weightSum; od[i+2] = b / weightSum; od[i+3] = a / weightSum;
-                    }
-                }
-                ctx.putImageData(output, 0, 0);
-                showNotification("Smart Smoothing Applied", "success");
-            }
-            else if (type === 'shader_5xbr') {
-                // "5xBR" Fake / Smart Anti-Aliasing (Mono replacement)
-                // Looks for jagged edges and blends them
-                const output = ctx.createImageData(w, h);
-                const od = output.data;
-                // Simple morphological smoothing
-                for (let y = 0; y < h; y++) {
-                    for (let x = 0; x < w; x++) {
-                        const i = (y * w + x) * 4;
-                        // Copy original first
-                        od[i] = d[i]; od[i+1] = d[i+1]; od[i+2] = d[i+2]; od[i+3] = d[i+3];
-                        
-                        // Check if pixel is part of a jagged edge (simplified)
-                        if (x > 0 && x < w-1 && y > 0 && y < h-1) {
-                            // Basic check: if current pixel is different from top & left, but top & left are same...
-                            // This logic is simplified for speed in JS
-                            // Weighted average of neighbors
-                            let r = d[i], g = d[i+1], b = d[i+2];
-                            let n = 1;
-                            
-                            // Check Top, Bottom, Left, Right
-                            const iU = ((y-1)*w + x)*4;
-                            const iD = ((y+1)*w + x)*4;
-                            const iL = (y*w + x-1)*4;
-                            const iR = (y*w + x+1)*4;
-                            
-                            // Blend if similar
-                            if (Math.abs(d[iU]-d[iD]) < 30) { r+=d[iU]; g+=d[iU+1]; b+=d[iU+2]; n++; }
-                            if (Math.abs(d[iL]-d[iR]) < 30) { r+=d[iL]; g+=d[iL+1]; b+=d[iL+2]; n++; }
-                            
-                            od[i] = r/n; od[i+1] = g/n; od[i+2] = b/n;
-                        }
-                    }
-                }
-                ctx.putImageData(output, 0, 0);
-                showNotification("5xBR (Smart Smooth) Applied", "success");
             }
             else if (type === 'smart_contrast') {
                 const contrast = 30; 
@@ -2431,80 +2647,159 @@
                 ctx.putImageData(imgData, 0, 0);
                 showNotification("Smart Contrast Applied", "success");
             }
+            else if (type === 'fxaa') {
+                const copy = new Uint8ClampedArray(d);
+                const radius = Math.min(20, Math.max(15, Math.floor(Math.max(w, h) / 5))); 
+                const colorThresh = 80; 
+                
+                for (let y = 0; y < h; y++) {
+                    for (let x = 0; x < w; x++) {
+                        const i = (y * w + x) * 4;
+                        if (copy[i+3] < 50) continue;
 
-            // REMOVED AUTO SAVE LOGIC HERE
-            // Changes only happen on Canvas. User must click "Inject" to save.
+                        let r = 0, g = 0, b = 0;
+                        let weightSum = 0;
+
+                        for(let dy = -radius; dy <= radius; dy++) {
+                            for(let dx = -radius; dx <= radius; dx++) {
+                                const nx = x + dx, ny = y + dy;
+                                if(nx>=0 && nx<w && ny>=0 && ny<h) {
+                                    const ni = (ny * w + nx) * 4;
+                                    const colorDist = Math.abs(copy[i]-copy[ni]) + Math.abs(copy[i+1]-copy[ni+1]) + Math.abs(copy[i+2]-copy[ni+2]);
+                                    
+                                    if (colorDist < colorThresh) {
+                                        r += copy[ni]; g += copy[ni+1]; b += copy[ni+2];
+                                        weightSum++;
+                                    }
+                                }
+                            }
+                        }
+                        if (weightSum > 0) {
+                            d[i] = r / weightSum; d[i+1] = g / weightSum; d[i+2] = b / weightSum; 
+                            d[i+3] = copy[i+3]; 
+                        }
+                    }
+                }
+                ctx.putImageData(imgData, 0, 0);
+                showNotification(`Smart Smooth (Radius: ${radius}) diaplikasikan`, "success");
+            }
+            else if (type === 'shader_5xbr') {
+                const passes = Math.max(1, Math.min(2, Math.floor(Math.max(w, h) / 70))); 
+                let currentData = new Uint8ClampedArray(d);
+                const sim = (dataArr, i1, i2) => Math.abs(dataArr[i1]-dataArr[i2]) + Math.abs(dataArr[i1+1]-dataArr[i2+1]) + Math.abs(dataArr[i1+2]-dataArr[i2+2]) < 40;
+
+                for (let p = 0; p < passes; p++) {
+                    const nextData = new Uint8ClampedArray(currentData);
+                    for (let y = 1; y < h - 1; y++) {
+                        for (let x = 1; x < w - 1; x++) {
+                            const i = (y * w + x) * 4;
+                            if (currentData[i+3] < 50) continue;
+
+                            const iU = ((y-1) * w + x) * 4; const iD = ((y+1) * w + x) * 4; 
+                            const iL = (y * w + x - 1) * 4; const iR = (y * w + x + 1) * 4; 
+                            let blendTarget = null;
+
+                            if (sim(currentData, iU, iL) && !sim(currentData, iU, iD) && !sim(currentData, iL, iR)) blendTarget = iU;      
+                            else if (sim(currentData, iU, iR) && !sim(currentData, iU, iD) && !sim(currentData, iR, iL)) blendTarget = iU; 
+                            else if (sim(currentData, iD, iL) && !sim(currentData, iD, iU) && !sim(currentData, iL, iR)) blendTarget = iD; 
+                            else if (sim(currentData, iD, iR) && !sim(currentData, iD, iU) && !sim(currentData, iR, iL)) blendTarget = iD; 
+
+                            if (blendTarget !== null) {
+                                const blendRatio = (p === 0) ? 0.5 : 0.3; 
+                                nextData[i]   = currentData[i] * (1 - blendRatio) + currentData[blendTarget] * blendRatio;
+                                nextData[i+1] = currentData[i+1] * (1 - blendRatio) + currentData[blendTarget+1] * blendRatio;
+                                nextData[i+2] = currentData[i+2] * (1 - blendRatio) + currentData[blendTarget+2] * blendRatio;
+                            }
+                        }
+                    }
+                    currentData = nextData;
+                }
+                for (let i = 0; i < d.length; i++) { d[i] = currentData[i]; }
+                ctx.putImageData(imgData, 0, 0);
+                showNotification(`5xBR (Vector ${passes} Pass) diaplikasikan`, "success");
+            }
+            
+            // --- 4. TUTUP LOADING (HANYA JIKA TADI DIBUKA) ---
+            if (isSlow) {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+            }
         };
 
         window.applyShaderToAll = async () => {
             if (!currentActiveShader || foundImages.length === 0) return;
-            if (!confirm(`Terapkan efek '${currentActiveShader}' ke semua gambar (${foundImages.length} items)?\nGambar di editor saat ini juga akan disimpan otomatis.`)) return;
+            if (!confirm(`Terapkan efek '${currentActiveShader}' ke semua gambar (${foundImages.length} items)?\nProses ini mungkin memakan waktu beberapa detik.`)) return;
 
             document.getElementById('loadingOverlay').classList.remove('hidden');
-            document.getElementById('loadingStatus').innerText = `Batch Processing: ${currentActiveShader}...`;
-
-            await new Promise(r => setTimeout(r, 100));
-
-            if(currentEditorImageIndex > -1 && !isImportedImage) {
-                foundImages[currentEditorImageIndex].isBatch = true; 
-            }
-
-            const tempCanvas = document.createElement('canvas');
-            const tCtx = tempCanvas.getContext('2d');
+            
+            // Simpan indeks gambar yang sedang dibuka oleh user agar bisa dikembalikan nanti
+            const originalIndex = currentEditorImageIndex;
 
             try {
                 let processed = 0;
                 let failed = 0;
+                
+                // Matikan sementara notifikasi agar layar tidak penuh dengan popup saat proses batch
+                const originalShowNotification = showNotification;
+                showNotification = () => {}; 
 
                 for (let i = 0; i < foundImages.length; i++) {
-                    if (i === currentEditorImageIndex) continue; 
-
                     const imgData = foundImages[i];
+                    document.getElementById('loadingStatus').innerText = `Batch Processing: ${i + 1} / ${foundImages.length}`;
+
+                    // 1. Muat gambar ke kanvas secara programatis (tanpa reset UI secara penuh)
                     const img = new Image();
                     await new Promise((resolve, reject) => {
                         img.onload = resolve;
                         img.onerror = reject;
                         img.src = imgData.url; 
                     });
-                    tempCanvas.width = img.width;
-                    tempCanvas.height = img.height;
-                    tCtx.clearRect(0, 0, img.width, img.height);
-                    tCtx.drawImage(img, 0, 0);
-
-                    const imageData = tCtx.getImageData(0, 0, img.width, img.height);
-                    const d = imageData.data;
-                    const type = currentActiveShader;
-
-                    // ... Shader Logic Copy (Simplified) ...
-                    if (type === 'natural') { /* ... */ }
-                    // Copy existing shader logic from applyShader here for batch...
-                    // For brevity, skipping logic duplication in this code block, 
-                    // but assumes same logic is applied to `d` buffer.
-                    // IMPORTANT: Ensure Batch Logic mirrors single applyShader logic exactly.
-
-                    tCtx.putImageData(imageData, 0, 0);
                     
-                    // FIX: BATCH COMPRESSION WITH BUFFER COPY
-                    const buffer = new Uint8Array(imageData.data).buffer;
-                    const bestBuffer = await smartCompress(buffer, img.width, img.height, imgData.isHidden ? imgData.size : null);
+                    editorCanvas.width = img.width;
+                    editorCanvas.height = img.height;
+                    ctx.clearRect(0, 0, img.width, img.height);
+                    ctx.drawImage(img, 0, 0);
+
+                    // 2. Terapkan Shader menggunakan fungsi asli (Pastikan fungsi asli ini sudah ada di kodemu)
+                    // Hapus baris peringatan notifikasi di applyShader untuk batch ini
+                    await applyShader(currentActiveShader); 
+
+                    // 3. Lakukan Injeksi (Kompresi & Simpan) seperti menekan tombol disket ungu
+                    const w = editorCanvas.width; 
+                    const h = editorCanvas.height;
+                    const buffer = new Uint8Array(ctx.getImageData(0,0,w,h).data).buffer;
+                    
+                    // Gunakan batas ukuran hanya jika ini gambar embed
+                    const bestBuffer = await smartCompress(buffer, w, h, imgData.isHidden ? imgData.size : null);
 
                     if (bestBuffer) {
                         const blob = new Blob([bestBuffer], {type:'image/png'});
+                        if(imgData.url) URL.revokeObjectURL(imgData.url);
                         imgData.modifiedData = blob;
                         imgData.blob = blob;
                         imgData.url = URL.createObjectURL(blob);
                         imgData.modified = true;
                         imgData.isBatch = true;
+                        if(imgData.draftData) delete imgData.draftData;
                         processed++;
                     } else {
                         failed++;
                     }
                 }
                 
-                let msg = `Sukses: ${processed} gambar.`;
-                if(failed > 0) msg += ` Gagal: ${failed} (Limit size).`;
+                // Kembalikan fungsi notifikasi seperti semula
+                showNotification = originalShowNotification;
+                
+                // Kembalikan Editor ke gambar awal yang sedang dibuka user
+                if (originalIndex > -1) {
+                    loadToEditor(originalIndex);
+                }
+
+                let msg = `Sukses: ${processed} gambar diterapkan.`;
+                if(failed > 0) msg += ` Gagal: ${failed} (Terlalu besar untuk slot embed).`;
                 showNotification(msg, failed > 0 ? "warning" : "success");
-                renderList(); 
+                
+                renderList(); // Segarkan UI Daftar Gambar
+                
             } catch (e) {
                 showNotification("Batch Error: " + e.message, "error");
             } finally {
