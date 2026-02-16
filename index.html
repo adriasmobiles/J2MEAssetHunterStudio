@@ -206,16 +206,18 @@
         }
 
         #brushCursor {
-            position: absolute;
-            pointer-events: none;
-            border: 1px solid rgba(255, 255, 255, 0.9);
-            box-shadow: 0 0 2px 0px rgba(0,0,0,0.8);
-            box-sizing: border-box; 
-            z-index: 50; 
-            display: none; 
-            will-change: transform, width, height;
-            top: 0; left: 0; 
-        }
+    position: absolute;
+    pointer-events: none;
+    box-sizing: border-box; 
+    z-index: 50; 
+    display: none; 
+    will-change: transform, width, height;
+    top: 0; left: 0; 
+    
+    /* -- RAHASIA KURSOR PRESISI -- */
+    border: 1px solid #ffffff !important; /* Ketebalan mutlak 1px murni */
+    mix-blend-mode: difference; /* Otomatis menjadi warna kebalikan dari gambar di bawahnya! */
+}
 
         /* Nav Buttons Refined V5 Style */
         .nav-btn-float {
@@ -241,7 +243,7 @@
     <header class="h-14 shrink-0 flex items-center justify-between px-4 bg-glass backdrop-blur-md border-b border-glassBorder z-[60] relative shadow-lg">
         <div id="header-logo-area" class="flex items-center gap-2 transition-opacity duration-300">
             <div class="w-8 h-8 rounded-lg grad-amber flex items-center justify-center text-white font-bold text-xs shadow-lg shadow-amber-500/20"><i class="fa-solid fa-crosshairs"></i></div>
-            <h1 class="font-bold text-base tracking-tight text-slate-100">J2ME </span> <span class="text-amber-500">Asset Hunter</span> <span class="text-xs white-500">Studio</span> <span class="text-[9px] text-slate-500 bg-slate-800 px-1 rounded ml-1">New</span></h1>
+            <h1 class="font-bold text-base tracking-tight text-slate-100">J2ME </span> <span class="text-amber-500">Asset Hunter</span> <span class="text-xs white-500">Studio</span> <span class="text-[9px] text-slate-500 bg-slate-800 px-1 rounded ml-1">by AdriasMobiles</span></h1>
         </div>
 
         <div id="header-editor-area" class="hidden absolute inset-0 flex items-center justify-between px-3 w-full bg-slate-900/95 backdrop-blur-md">
@@ -276,8 +278,8 @@
                 <div class="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mb-4 shadow-inner group-active:scale-95 transition">
                     <i class="fa-solid fa-box-open text-amber-500 text-3xl drop-shadow-lg"></i>
                 </div>
-                <h3 class="font-bold text-slate-200">Buka File Game (Jar/Zip/Apk)</h3>
-                <p id="fileNameDisplay" class="text-xs text-slate-400 mt-1 text-center px-4">Fitur Unduhan Baru V2</p>
+                <h3 class="font-bold text-slate-200">Pilih File (Jar/Zip/Png)</h3>
+                <p id="fileNameDisplay" class="text-xs text-slate-400 mt-1 text-center px-4">Perbaikan Bug dan Stabilitas</p>
             </div>
 
             <div id="statsBar" class="hidden flex justify-between items-center mb-3 px-1">
@@ -351,7 +353,7 @@
                 <div class="flex flex-col gap-2 pointer-events-auto items-end">
                     <!-- NEW UNDO POS: Top of the group, above Reset -->
 					<button onclick="resetEditor()" class="px-3 py-1.5 bg-red-900/50 hover:bg-red-700 border border-red-500/50 rounded text-xs text-white flex items-center gap-1 transition-colors">
-                        <i class="fa-solid fa-trash-arrow-up"></i> Reset
+                        <i class="fa-solid fa-trash-arrow-up"></i>
                     </button>
 
                     <button onclick="undo()" id="btnUndo" disabled class="w-10 h-10 rounded-full grad-slate border border-slate-600 text-slate-200 disabled:opacity-30 flex items-center justify-center transition-all shadow-xl active:scale-95 mb-2">
@@ -639,13 +641,25 @@
 <div id="downloadModal" class="hidden fixed inset-0 z-[90] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 transition-opacity">
         <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm p-5 flex flex-col gap-4 shadow-2xl">
             <h3 class="font-bold text-slate-200 text-lg flex items-center gap-2">
-                <i class="fa-solid fa-cloud-arrow-down text-blue-400"></i> Server Unduhan
+                <i class="fa-solid fa-cloud-arrow-down text-blue-400"></i> Opsi Unduhan
             </h3>
             <p class="text-[11px] text-slate-400 leading-relaxed">
-                Karena batasan WebView APK, file akan diunggah sementara ke server agar bisa diunduh dengan aman melalui Browser luar.
+                Pilih metode penyimpanan yang paling sesuai dengan perangkat Anda.
             </p>
 
-            <div id="cloudProgress" class="flex flex-col gap-2 my-2">
+            <div id="downloadOptions" class="flex flex-col gap-3">
+                <button id="btnDlLocal" class="w-full py-3 grad-emerald rounded-xl text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg active:scale-95 transition">
+                    <i class="fa-solid fa-desktop"></i> Unduh via Web (Offline)
+                </button>
+                <button id="btnDlShare" class="w-full py-3 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 font-bold text-xs flex items-center justify-center gap-2 shadow border border-slate-600 active:scale-95 transition">
+                    <i class="fa-solid fa-share-nodes"></i> Bagikan (Android)
+                </button>
+                <button id="btnDlCloud" class="w-full py-2 bg-slate-900 border border-blue-500/30 text-blue-400 rounded-xl font-bold text-[10px] flex items-center justify-center gap-2 mt-2 active:scale-95 transition">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Buat Link (Khusus APK Error)
+                </button>
+            </div>
+
+            <div id="cloudProgress" class="hidden flex-col gap-2 my-2">
                 <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
                     <div id="cloudBar" class="bg-blue-500 h-2 w-0 transition-all duration-300"></div>
                 </div>
@@ -657,7 +671,7 @@
                     <i class="fa-brands fa-chrome"></i> Unduh via Browser (Chrome)
                 </button>
                 <button id="btnShareLink" class="w-full py-3 grad-blue rounded-xl text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg active:scale-95 transition">
-                    <i class="fa-solid fa-share-nodes"></i> Bagikan / Salin Link
+                    <i class="fa-regular fa-copy"></i> Salin Link
                 </button>
                 <input type="text" id="linkBox" readonly class="w-full bg-slate-800 border border-slate-700 text-slate-300 text-[10px] p-2 rounded outline-none text-center cursor-text select-all" onclick="this.select()">
             </div>
@@ -766,57 +780,55 @@
             }).join('');
         };
 
-        // Fungsi Reset Instan (Perbaikan Memori Nyangkut)
-        window.resetEditor = () => {
-            if (!originalImportedImage) return;
+        // FUNGSI CUSTOM CONFIRM
+        window.customConfirm = (msg, onConfirm) => {
+            const modal = document.getElementById('customConfirmModal');
+            document.getElementById('confirmMessage').innerText = msg;
+            modal.classList.remove('hidden');
 
-            // Bersihkan draf memori yang tersimpan agar efek tidak nyangkut!
-            if (currentEditorImageIndex > -1) {
-                const target = foundImages[currentEditorImageIndex];
-                if (target.draftData) delete target.draftData;
-                if (target.draftUndoStack) delete target.draftUndoStack;
-                if (target.draftText) delete target.draftText;
-                if (target.draftDims) delete target.draftDims;
-            }
-
-            const resetCanvasUI = (img) => {
-                editorCanvas.width = img.width;
-                editorCanvas.height = img.height;
-                document.getElementById('resizeW').value = img.width;
-                document.getElementById('resizeH').value = img.height;
-                
-                ctx.imageSmoothingEnabled = false; 
-                ctx.clearRect(0, 0, img.width, img.height);
-                ctx.drawImage(img, 0, 0);
-                
-                originalImportedImage = document.createElement('canvas');
-                originalImportedImage.width = img.width; 
-                originalImportedImage.height = img.height;
-                originalImportedImage.getContext('2d').drawImage(img, 0, 0);
-                
-                undoStack = [];
-                document.getElementById('btnUndo').disabled = true;
-                if (typeof redoStack !== 'undefined') redoStack = [];
-                
-                appliedShadersList = [];
-                renderShaderBadges();
-                currentActiveShader = null;
-                btnApplyAll.classList.add('hidden');
-                
-                showNotification("Gambar di-reset bersih ke kondisi awal!", "success");
+            document.getElementById('btnConfirmOk').onclick = () => {
+                modal.classList.add('hidden');
+                onConfirm();
             };
-
-            if (currentEditorImageIndex > -1) {
-                // Muat ulang gambar murni dari URL sumber (mengabaikan kanvas)
-                const img = new Image();
-                img.onload = () => resetCanvasUI(img);
-                img.src = foundImages[currentEditorImageIndex].url;
-            } else {
-                // Jika ini adalah gambar yang diimpor manual
-                resetCanvasUI(originalImportedImage);
-            }
+            document.getElementById('btnConfirmCancel').onclick = () => {
+                modal.classList.add('hidden');
+            };
         };
 
+        window.resetEditor = () => {
+            if (!originalImportedImage) return;
+            
+            if (currentEditorImageIndex > -1) { 
+                const target = foundImages[currentEditorImageIndex]; 
+                if (target.draftData) delete target.draftData; 
+                if (target.draftUndoStack) delete target.draftUndoStack; 
+                if (target.draftText) delete target.draftText; 
+                if (target.draftDims) delete target.draftDims; 
+                if (target.draftBadges) delete target.draftBadges; 
+            }
+            
+            const resetCanvasUI = (img) => {
+                editorCanvas.width = img.width; editorCanvas.height = img.height; document.getElementById('resizeW').value = img.width; document.getElementById('resizeH').value = img.height;
+                ctx.imageSmoothingEnabled = false; ctx.clearRect(0, 0, img.width, img.height); ctx.drawImage(img, 0, 0);
+                originalImportedImage = document.createElement('canvas'); originalImportedImage.width = img.width; originalImportedImage.height = img.height; originalImportedImage.getContext('2d').drawImage(img, 0, 0);
+                
+                // Matikan memori Undo dan bersihkan Kapsul Shader
+                undoStack = []; document.getElementById('btnUndo').disabled = true; appliedShadersList = []; renderShaderBadges(); currentActiveShader = null; btnApplyAll.classList.add('hidden');
+                showNotification("Gambar di-reset bersih!", "success");
+            };
+            
+            if (currentEditorImageIndex > -1) { 
+                const target = foundImages[currentEditorImageIndex];
+                const img = new Image(); 
+                img.onload = () => resetCanvasUI(img); 
+                
+                // PERBAIKAN MUTLAK: Selalu muat ulang dari Blob Asli (Bukan dari URL yang mungkin sudah diinjeksi)
+                const originalBlob = new Blob([target.originalData], {type: 'image/png'});
+                img.src = URL.createObjectURL(originalBlob);
+            } else { 
+                resetCanvasUI(originalImportedImage); 
+            }
+        };
         
         // --- BACK BUTTON LOGIC ---
         let backPressTimer = null;
@@ -1145,75 +1157,97 @@
             const modal = document.getElementById('downloadModal');
             modal.classList.remove('hidden');
 
-            // Setup UI Modal
-            document.getElementById('cloudProgress').classList.remove('hidden');
+            // Reset Tampilan Awal
+            document.getElementById('downloadOptions').classList.remove('hidden');
+            document.getElementById('cloudProgress').classList.add('hidden');
+            document.getElementById('cloudProgress').classList.remove('flex');
             document.getElementById('successActions').classList.add('hidden');
-            document.getElementById('cloudBar').classList.remove('bg-red-500');
-            document.getElementById('cloudBar').classList.add('bg-blue-500');
-            document.getElementById('cloudBar').style.width = "10%";
-            document.getElementById('cloudStatus').innerText = "Mengunggah ke server (Bypass APK)...";
+            document.getElementById('successActions').classList.remove('flex');
 
-            try {
-                // Proses unggah langsung berjalan otomatis tanpa menunggu pengguna menekan tombol
-                const formData = new FormData();
-                formData.append('file', new File([blob], fileName, {type: blob.type || 'application/java-archive'}));
+            // 1. UNDUH LOKAL (OFFLINE / BROWSER PC)
+            document.getElementById('btnDlLocal').onclick = () => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+                modal.classList.add('hidden');
+            };
 
-                document.getElementById('cloudBar').style.width = "40%";
-                
-                const response = await fetch('https://tmpfiles.org/api/v1/upload', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const result = await response.json();
-                
-                if (result && result.data && result.data.url) {
-                    document.getElementById('cloudBar').style.width = "100%";
-                    document.getElementById('cloudStatus').innerText = "Berhasil! Link unduhan siap.";
-                    
-                    // Ubah link dari halaman web menjadi Direct Download
-                    const directLink = result.data.url.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
-                    
-                    document.getElementById('cloudProgress').classList.add('hidden');
-                    document.getElementById('successActions').classList.remove('hidden');
-                    document.getElementById('successActions').classList.add('flex');
-                    
-                    // Tampilkan link murni di kotak teks sebagai pertahanan terakhir
-                    document.getElementById('linkBox').value = directLink;
-
-                    // TOMBOL 1: JEBOL PAKSA KE GOOGLE CHROME (Mencegah Layar Hijau)
-                    document.getElementById('btnOpenChrome').onclick = () => {
-                        const cleanUrl = directLink.replace(/^https?:\/\//, '');
-                        // Intent URI ini akan menyuruh Android menutup WebView dan membuka link di browser eksternal
-                        const intentUrl = `intent://${cleanUrl}#Intent;scheme=https;action=android.intent.action.VIEW;end;`;
-                        window.location.href = intentUrl;
-                    };
-
-                    // TOMBOL 2: BAGIKAN LINK TEKS (Bukan Blob)
-                    document.getElementById('btnShareLink').onclick = async () => {
-                        if (navigator.share) {
-                            try {
-                                // Membagikan TEKS sangat aman dan tidak akan ditolak oleh APK
-                                await navigator.share({
-                                    title: 'Unduh Mod J2ME',
-                                    text: `Unduh file modifikasi J2ME di sini:\n${directLink}`
-                                });
-                            } catch(e) { }
-                        } else {
-                            // Jika share gagal, salin ke clipboard
-                            navigator.clipboard.writeText(directLink);
-                            showNotification("Link disalin ke clipboard!", "success");
-                        }
-                    };
-
+            // 2. BAGIKAN KE APLIKASI ANDROID LAIN (ZARCHIVER/FILE MANAGER)
+            document.getElementById('btnDlShare').onclick = async () => {
+                if (navigator.canShare && navigator.canShare({ files: [new File([blob], fileName, { type: blob.type })] })) {
+                    try {
+                        await navigator.share({
+                            title: 'Simpan Mod J2ME',
+                            files: [new File([blob], fileName, { type: blob.type || 'application/java-archive' })]
+                        });
+                        modal.classList.add('hidden');
+                    } catch (err) { }
                 } else {
-                    throw new Error("Server menolak");
+                    showNotification("Perangkat tidak mendukung Share lokal", "error");
                 }
-            } catch (err) {
-                document.getElementById('cloudStatus').innerText = "Gagal: Pastikan internet aktif.";
-                document.getElementById('cloudBar').classList.replace('bg-blue-500', 'bg-red-500');
-                document.getElementById('cloudBar').style.width = "100%";
-            }
+            };
+
+            // 3. BUAT LINK (KHUSUS JIKA 2 OPSI DI ATAS GAGAL DI APK)
+            document.getElementById('btnDlCloud').onclick = async () => {
+                document.getElementById('downloadOptions').classList.add('hidden');
+                document.getElementById('cloudProgress').classList.remove('hidden');
+                document.getElementById('cloudProgress').classList.add('flex');
+                
+                document.getElementById('cloudBar').classList.remove('bg-red-500');
+                document.getElementById('cloudBar').classList.add('bg-blue-500');
+                document.getElementById('cloudBar').style.width = "10%";
+                document.getElementById('cloudStatus').innerText = "Mengunggah ke server...";
+
+                try {
+                    const formData = new FormData();
+                    formData.append('file', new File([blob], fileName, {type: blob.type || 'application/java-archive'}));
+                    document.getElementById('cloudBar').style.width = "40%";
+                    
+                    const response = await fetch('https://tmpfiles.org/api/v1/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const result = await response.json();
+                    
+                    if (result && result.data && result.data.url) {
+                        document.getElementById('cloudBar').style.width = "100%";
+                        document.getElementById('cloudStatus').innerText = "Berhasil! Link unduhan siap.";
+                        
+                        const directLink = result.data.url.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
+                        
+                        document.getElementById('cloudProgress').classList.add('hidden');
+                        document.getElementById('cloudProgress').classList.remove('flex');
+                        document.getElementById('successActions').classList.remove('hidden');
+                        document.getElementById('successActions').classList.add('flex');
+                        
+                        document.getElementById('linkBox').value = directLink;
+
+                        document.getElementById('btnOpenChrome').onclick = () => {
+                            const cleanUrl = directLink.replace(/^https?:\/\//, '');
+                            const intentUrl = `intent://${cleanUrl}#Intent;scheme=https;action=android.intent.action.VIEW;end;`;
+                            window.location.href = intentUrl;
+                        };
+
+                        document.getElementById('btnShareLink').onclick = async () => {
+                            if (navigator.share) {
+                                try { await navigator.share({ title: 'Unduh Mod J2ME', text: `Unduh file modifikasi J2ME di sini:\n${directLink}` }); } catch(e) { }
+                            } else {
+                                navigator.clipboard.writeText(directLink);
+                                showNotification("Link disalin ke clipboard!", "success");
+                            }
+                        };
+
+                    } else { throw new Error("Server menolak"); }
+                } catch (err) {
+                    document.getElementById('cloudStatus').innerText = "Gagal: Pastikan internet aktif.";
+                    document.getElementById('cloudBar').classList.replace('bg-blue-500', 'bg-red-500');
+                    document.getElementById('cloudBar').style.width = "100%";
+                }
+            };
         };
 
         window.downloadAssetsZip = async () => {
@@ -1257,7 +1291,7 @@
             const rect = editorCanvas.getBoundingClientRect();
             let offsetY = 0;
             if (isPrecisionMode) {
-                offsetY = 60; 
+                offsetY = 50; 
             }
             return { 
                 x: (clientX - rect.left) / scale, 
@@ -1320,54 +1354,32 @@
             document.getElementById('btnEyedropperText').classList.remove('btn-eyedropper-active');
         }
 
+        let lastTouchTime = 0; // Variabel pelacak Ghost Click
+
         function handlePointerDown(e) {
-            if(e.target.closest('#textOverlay')) return; 
-
-            // FIX UNTUK PC: Cegah browser melakukan "Native Image Drag" yang memutus fungsi geser
-            if (e.type === 'mousedown') {
-                e.preventDefault();
-            }
-
-            if(eyedropperActive) {
-                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-                const pos = getLocalCoords(clientX, clientY);
-                pickColorAt(pos.x, pos.y);
-                return;
-            }
-
-            if(e.touches && e.touches.length === 2) {
-                isTouchZooming = true;
-                lastTouchDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
-                isDrawing = false;
-                return;
-            }
-
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            // FIX SLIDER: Abaikan sentuhan jika user mengenai UI, Panel, Tombol, atau Slider Input
+            if(e.target.closest('#textOverlay') || e.target.closest('#toolsSheet') || e.target.closest('.panel') || e.target.tagName.toLowerCase() === 'input' || e.target.closest('button')) return; 
+            
+            // FIX UNDO: Blokir Ghost-Click dari browser agar tidak merekam Undo dua kali
+            if (e.type === 'touchstart') { lastTouchTime = Date.now(); }
+            if (e.type === 'mousedown' && Date.now() - lastTouchTime < 500) { return; }
+            if (e.type === 'mousedown') { e.preventDefault(); }
+            
+            if(eyedropperActive) { const pos = getLocalCoords(e.touches ? e.touches[0].clientX : e.clientX, e.touches ? e.touches[0].clientY : e.clientY); pickColorAt(pos.x, pos.y); return; }
+            if(e.touches && e.touches.length === 2) { isTouchZooming = true; lastTouchDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY); isDrawing = false; return; }
+            
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX; const clientY = e.touches ? e.touches[0].clientY : e.clientY;
             const pos = getLocalCoords(clientX, clientY);
+			moveBrushCursor(pos);
 
-            if (currentTool === 'none') {
-                isPanning = true;
-                startPanX = clientX - pannedX;
-                startPanY = clientY - pannedY;
-                canvasViewport.style.cursor = 'grabbing';
-            } else if (currentTool === 'brush' || currentTool === 'eraser') {
-                const isMagicBrush = (currentTool === 'brush' && document.getElementById('brushMagicToggle').checked);
-                const isMagicEraser = (currentTool === 'eraser' && document.getElementById('eraserMagicToggle').checked);
-
-                if (isMagicBrush || isMagicEraser) {
-                    saveState();
-                    applyMagicWand(pos.x, pos.y, isMagicEraser);
-                    return; 
-                }
-
-                isDrawing = true;
-                saveState();
+            if (currentTool === 'none') { isPanning = true; startPanX = clientX - pannedX; startPanY = clientY - pannedY; canvasViewport.style.cursor = 'grabbing'; } 
+            else if (currentTool === 'brush' || currentTool === 'eraser') {
+                const isMagicBrush = (currentTool === 'brush' && document.getElementById('brushMagicToggle').checked); const isMagicEraser = (currentTool === 'eraser' && document.getElementById('eraserMagicToggle').checked);
+                if (isMagicBrush || isMagicEraser) { saveState(); applyMagicWand(pos.x, pos.y, isMagicEraser); return; }
                 
-                lastDrawX = pos.x;
-                lastDrawY = pos.y;
-                
+                isDrawing = true; 
+                saveState(); // Simpan murni 1x ke Undo Stack
+                lastDrawX = pos.x; lastDrawY = pos.y; 
                 paintLine(pos.x, pos.y, pos.x, pos.y, currentTool === 'eraser');
             }
         }
@@ -1391,23 +1403,6 @@
         }
 
         function handlePointerMove(e) {
-            // FIX: Improved Pinch Zoom Move Logic
-            if(isTouchZooming && e.touches && e.touches.length === 2) {
-                e.preventDefault(); // Critical to prevent browser zoom
-                const dist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
-                
-                if (lastTouchDist > 0) {
-                    const zoomSpeed = 0.005; 
-                    const delta = dist - lastTouchDist;
-                    // More sensitive zoom
-                    const newScale = scale + (delta * zoomSpeed * scale * 2);
-                    applyZoom(Math.max(0.1, Math.min(newScale, 10)));
-                }
-                
-                lastTouchDist = dist;
-                return;
-            }
-
             if (isPanning && currentTool === 'none') {
                  e.preventDefault();
                  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -1419,36 +1414,27 @@
             }
 
             if (currentTool === 'none') {
-                brushCursor.style.display = 'none';
-                return;
+                return; // Kotak kursor sudah dihapus, langsung return
             }
             
+            if(isTouchZooming && e.touches && e.touches.length === 2) {
+                e.preventDefault();
+                const dist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+                const delta = dist - lastTouchDist;
+                const newScale = Math.min(Math.max(0.1, scale + (delta * 0.01)), 10);
+                applyZoom(newScale);
+                lastTouchDist = dist;
+                return;
+            }
+
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
+            // Mengambil titik koordinat asli untuk fungsi coret/hapus
             const pos = getLocalCoords(clientX, clientY);
+			moveBrushCursor(pos);
             
-            const brushSize = parseInt(currentTool === 'brush' ? 
-                document.getElementById('brushSizeSlider').value : 
-                document.getElementById('eraserSizeSlider').value);
-
-            const rectViewport = canvasViewport.getBoundingClientRect();
-            const rectCanvas = editorCanvas.getBoundingClientRect();
-            const relativeCanvasLeft = rectCanvas.left - rectViewport.left;
-            const relativeCanvasTop = rectCanvas.top - rectViewport.top;
-            const canvasPixelX = Math.floor(pos.x);
-            const canvasPixelY = Math.floor(pos.y);
-            const visualBrushSize = brushSize * scale;
-            const halfBrush = Math.floor(brushSize / 2);
-            
-            const cursorLeft = relativeCanvasLeft + ((canvasPixelX - halfBrush) * scale);
-            const cursorTop = relativeCanvasTop + ((canvasPixelY - halfBrush) * scale);
-            
-            brushCursor.style.width = visualBrushSize + 'px';
-            brushCursor.style.height = visualBrushSize + 'px';
-            brushCursor.style.transform = `translate3d(${cursorLeft}px, ${cursorTop}px, 0)`;
-            brushCursor.style.display = 'block';
-            
+            // Eksekusi fungsi menggambar/menghapus tanpa merender kotak kursor
             if (isDrawing && !eyedropperActive) {
                 e.preventDefault();
                 paintLine(lastDrawX, lastDrawY, pos.x, pos.y, currentTool === 'eraser');
@@ -1552,8 +1538,36 @@
         document.getElementById('brushColorPicker').addEventListener('input', updateBrushCursor);
 
         function updateBrushCursor() {
-            // Style set via CSS
-        }
+    if (currentTool === 'none') {
+        brushCursor.style.display = 'none';
+        return;
+    }
+    brushCursor.style.display = 'block';
+    
+    const isEraser = currentTool === 'eraser';
+    const size = parseInt(isEraser ? document.getElementById('eraserSizeSlider').value : document.getElementById('brushSizeSlider').value);
+    
+    // Sesuaikan ukuran kotak dengan slider (hanya ukuran, biarkan warna diurus oleh CSS)
+    brushCursor.style.width = size + 'px';
+    brushCursor.style.height = size + 'px';
+}
+
+// FUNGSI BARU: Penggerak magnet kursor yang presisi
+function moveBrushCursor(pos) {
+    if (currentTool === 'none') return;
+    const isEraser = currentTool === 'eraser';
+    const size = parseInt(isEraser ? document.getElementById('eraserSizeSlider').value : document.getElementById('brushSizeSlider').value);
+    
+    // Ambil offset asli kanvas
+    const canvasLeft = editorCanvas.offsetLeft || 0;
+    const canvasTop = editorCanvas.offsetTop || 0;
+    
+    // Tempatkan tepat di titik tengah kursor (atau di atas jempol jika mode presisi aktif!)
+    const cursorX = canvasLeft + pos.x - (size / 2);
+    const cursorY = canvasTop + pos.y - (size / 2);
+    
+    brushCursor.style.transform = `translate(${cursorX}px, ${cursorY}px)`;
+}
 
         function paintLine(x0, y0, x1, y1, isEraser) {
             x0 = Math.floor(x0); y0 = Math.floor(y0);
@@ -1687,73 +1701,62 @@
         window.toggleTextVisibility = (isVisible) => {
             textState.visible = isVisible;
             if (isVisible) {
-                const defaultText = "TEKS";
-                if (editorCanvas.width <= 100 || editorCanvas.height <= 100) {
-                     textState.w = editorCanvas.width;
-                     textState.h = editorCanvas.height;
-                     textState.x = 0; 
-                     textState.y = 0;
-                     textState.fontSize = Math.max(8, Math.floor(editorCanvas.height / 2.5));
-                } else {
-                    textState.fontSize = 10;
-                    ctx.font = `${textState.fontSize}px Arial`; 
-                    const metrics = ctx.measureText(defaultText);
-                    const actualWidth = Math.ceil(metrics.width) + 4; 
-                    const actualHeight = Math.ceil(textState.fontSize * 1.2);
-                    textState.w = actualWidth; textState.h = actualHeight;
-                    textState.x = Math.floor((editorCanvas.width - textState.w) / 2);
-                    textState.y = Math.floor((editorCanvas.height - textState.h) / 2);
-                }
-                textOverlay.style.display = 'flex';
-                textOverlay.classList.remove('locked-mode');
-                isTextVirtual = false;
-                guideX.style.display = 'block';
+                textState.fontSize = 10; 
+                ctx.font = `10px Arial`; 
+                textState.w = Math.ceil(ctx.measureText("TEKS").width) + 20; 
+				// FIXED: Tinggi kotak kini dinamis mengikuti ukuran font bawaan
+				textState.h = textState.fontSize + 4; 
+                
+                // TITIK TENGAH MUTLAK: Tidak peduli layar/scroll, selalu di tengah gambar!
+                textState.x = (editorCanvas.width / 2) - (textState.w / 2);
+                textState.y = (editorCanvas.height / 2) - (textState.h / 2);
+                
+                textOverlay.style.display = 'flex'; 
+                textOverlay.classList.remove('locked-mode'); 
+                isTextVirtual = false; 
+                guideX.style.display = 'block'; 
                 guideY.style.display = 'block';
-                animateOverlay();
-                updateTextStyle();
-                document.getElementById('fontSizeSlider').value = textState.fontSize;
-                document.getElementById('fontSizeDisplay').innerText = textState.fontSize;
-                showNotification("Layer Teks Aktif", "info");
-            } else {
-                textOverlay.style.display = 'none';
-                guideX.style.display = 'none';
-                guideY.style.display = 'none';
-                isTextVirtual = false;
-                textOverlay.classList.remove('locked-mode');
-                if(overlaySyncId) cancelAnimationFrame(overlaySyncId);
+                
+                animateOverlay(); 
+                updateTextStyle(); 
+                document.getElementById('fontSizeSlider').value = 10; 
+                document.getElementById('fontSizeDisplay').innerText = 10; 
+                showNotification("Teks Aktif", "info");
+            } else { 
+                textOverlay.style.display = 'none'; 
+                guideX.style.display = 'none'; 
+                guideY.style.display = 'none'; 
+                isTextVirtual = false; 
+                textOverlay.classList.remove('locked-mode'); 
+                if(overlaySyncId) cancelAnimationFrame(overlaySyncId); 
             }
         }
 
         function syncTextOverlayVisuals() {
-            if (!textState.visible) return;
-            const screenX = textState.x * scale;
-            const screenY = textState.y * scale;
-            const screenW = textState.w * scale;
-            const screenH = textState.h * scale;
-            const screenFontSize = textState.fontSize * scale;
-            
-            const rect = canvasWrapper.getBoundingClientRect();
-            const viewRect = canvasViewport.getBoundingClientRect();
-            
-            const offsetX = rect.left - viewRect.left;
-            const offsetY = rect.top - viewRect.top;
+    if (!textState.visible) return;
+    
+    // Gunakan offset bawaan dari kanvas (unscaled) karena kita berada di dalam wrapper yang sama
+    const canvasLeft = editorCanvas.offsetLeft || 0;
+    const canvasTop = editorCanvas.offsetTop || 0;
 
-            textOverlay.style.left = (offsetX + screenX) + 'px'; 
-            textOverlay.style.top = (offsetY + screenY) + 'px';
-            textOverlay.style.width = screenW + 'px'; 
-            textOverlay.style.height = screenH + 'px';
-            textInner.style.fontSize = screenFontSize + "px";
-            
-            if (document.getElementById('outlineCheck').checked) {
-                const outlineSize = parseFloat(document.getElementById('outlineSizeSlider').value) || 0;
-                const col = document.getElementById('outlineColorPicker').value;
-                const scaledStroke = Math.max(0, outlineSize * scale * 1.5); 
-                textInner.style.webkitTextStroke = `${scaledStroke}px ${col}`;
-                textInner.style.paintOrder = 'stroke fill';
-            } else { 
-                textInner.style.webkitTextStroke = '0px transparent'; 
-            }
-        }
+    // HAPUS SEMUA PERKALIAN * scale !
+    // CSS Transform pada #canvasWrapper sudah otomatis melakukan zoom/scale untuk kita
+    textOverlay.style.left = (canvasLeft + textState.x) + 'px';
+    textOverlay.style.top = (canvasTop + textState.y) + 'px';
+    
+    textOverlay.style.width = textState.w + 'px'; 
+    textOverlay.style.height = textState.h + 'px'; 
+    textInner.style.fontSize = textState.fontSize + "px";
+    
+    if (document.getElementById('outlineCheck').checked) { 
+        // Hapus juga perkalian scale pada ukuran outline teks
+        const strokeSize = Math.max(0, parseFloat(document.getElementById('outlineSizeSlider').value) * 1.5);
+        textInner.style.webkitTextStroke = `${strokeSize}px ${document.getElementById('outlineColorPicker').value}`; 
+        textInner.style.paintOrder = 'stroke fill'; 
+    } else { 
+        textInner.style.webkitTextStroke = '0px transparent'; 
+    }
+}
 
         function handleTextStart(e, mode) {
             if(isTextVirtual) return; 
@@ -1765,22 +1768,45 @@
             if(mode === 'resize') isTextResizing = true;
         }
 
-        function handleTextMove(e) {
-            if((!isTextDragging && !isTextResizing) || isTextVirtual) return;
-            e.preventDefault();
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            const dxLogic = (clientX - textDragStart.x) / scale;
-            const dyLogic = (clientY - textDragStart.y) / scale;
-            if(isTextDragging) {
-                textState.x += dxLogic; textState.y += dyLogic;
-                const cx = editorCanvas.width / 2; const cy = editorCanvas.height / 2;
-                const tcx = textState.x + textState.w/2; const tcy = textState.y + textState.h/2;
-                if(Math.abs(tcx - cx) < 3) { textState.x = cx - textState.w/2; }
-                if(Math.abs(tcy - cy) < 3) { textState.y = cy - textState.h/2; }
-            }
-            if(isTextResizing) { textState.w = Math.max(5, textState.w + dxLogic); textState.h = Math.max(5, textState.h + dyLogic); }
-            textDragStart = {x: clientX, y: clientY};
+        function handleTextMove(e) { 
+            if((!isTextDragging && !isTextResizing) || isTextVirtual) return; 
+            e.preventDefault(); 
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX; 
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY; 
+            
+            const dxLogic = (clientX - textDragStart.x) / scale; 
+            const dyLogic = (clientY - textDragStart.y) / scale; 
+            
+            if(isTextDragging) { 
+                textState.x += dxLogic; 
+                textState.y += dyLogic; 
+
+                // --- MAGNET MUTLAK KE GARIS MERAH ---
+				const magnetStrength = 10 / scale; // Kekuatan sedot 10 piksel
+
+				// Titik pusat absolut dari kanvas (tidak terpengaruh oleh zoom atau pan)
+				const targetCanvasX = editorCanvas.width / 2;
+				const targetCanvasY = editorCanvas.height / 2;
+                
+                const textCenterX = textState.x + (textState.w / 2);
+                const textCenterY = textState.y + (textState.h / 2);
+
+                // Jika posisi jari mendekati sumbu X merah, Sedot Teksnya!
+                if (Math.abs(textCenterX - targetCanvasX) < magnetStrength) {
+                    textState.x = targetCanvasX - (textState.w / 2);
+                }
+                // Jika posisi jari mendekati sumbu Y merah, Sedot Teksnya!
+                if (Math.abs(textCenterY - targetCanvasY) < magnetStrength) {
+                    textState.y = targetCanvasY - (textState.h / 2);
+                }
+            } 
+            
+            if(isTextResizing) { 
+                textState.w = Math.max(5, textState.w + dxLogic); 
+                textState.h = Math.max(5, textState.h + dyLogic); 
+            } 
+            
+            textDragStart = {x: clientX, y: clientY}; 
         }
 
         function handleTextEnd() {
@@ -1799,9 +1825,17 @@
         window.addEventListener('mouseup', handleTextEnd);
 
         document.getElementById('fontSizeSlider').addEventListener('input', (e) => {
-            textState.fontSize = parseInt(e.target.value);
-            document.getElementById('fontSizeDisplay').innerText = textState.fontSize;
-        });
+    textState.fontSize = parseInt(e.target.value);
+    document.getElementById('fontSizeDisplay').innerText = textState.fontSize;
+    
+    // FIXED: Sesuaikan tinggi kotak otomatis agar magnet berada tepat di tengah teks visual
+    textState.h = textState.fontSize + 4;
+    
+    // Cegah teks terpotong ke samping saat ukurannya dibesarkan
+    ctx.font = `${textState.bold ? 'bold ' : ''}${textState.italic ? 'italic ' : ''}${textState.fontSize}px Arial`;
+    const newW = Math.ceil(ctx.measureText(textInner.innerText || "TEKS").width) + 20;
+    if (newW > textState.w) textState.w = newW;
+});
         
         document.getElementById('outlineSizeSlider').addEventListener('input', (e) => {
             const val = e.target.value;
@@ -2051,6 +2085,7 @@
             reader.readAsDataURL(file);
         };
 
+        // FUNGSI LOAD EDITOR (Memuat Kapsul Milik Gambar Saja)
         window.loadToEditor = (index) => {
             fullEditorReset(); 
             const imgData = foundImages[index]; 
@@ -2058,12 +2093,10 @@
             isImportedImage = false; 
             updateFloatingControls();
             document.getElementById('enhancementPanel').classList.remove('hidden');
-            
             imageCounter.innerText = `${index + 1} / ${foundImages.length}`;
             
             if(imgData.draftData) {
-                editorCanvas.width = imgData.draftDims.w; 
-                editorCanvas.height = imgData.draftDims.h;
+                editorCanvas.width = imgData.draftDims.w; editorCanvas.height = imgData.draftDims.h;
                 ctx.putImageData(imgData.draftData, 0, 0);
                 
                 if(imgData.draftUndoStack && imgData.draftUndoStack.length > 0) {
@@ -2071,16 +2104,22 @@
                      document.getElementById('btnUndo').disabled = false;
                 }
                 
+                // MUAT KAPSUL LOKAL!
+                appliedShadersList = imgData.draftBadges ? [...imgData.draftBadges] : [];
+                renderShaderBadges();
+                if(appliedShadersList.length > 0) {
+                    currentActiveShader = appliedShadersList[appliedShadersList.length - 1];
+                    btnApplyAll.classList.remove('hidden');
+                }
+
                 const img = new Image();
                 img.onload = () => {
                     originalImportedImage = document.createElement('canvas');
-                    originalImportedImage.width = img.width;
-                    originalImportedImage.height = img.height;
+                    originalImportedImage.width = img.width; originalImportedImage.height = img.height;
                     originalImportedImage.getContext('2d').drawImage(img, 0, 0);
                     
                     if(imgData.draftText) {
-                        textState = imgData.draftText.state;
-                        textInner.innerText = imgData.draftText.content;
+                        textState = imgData.draftText.state; textInner.innerText = imgData.draftText.content;
                         if(imgData.draftText.colors) {
                              document.getElementById('textColorPicker').value = imgData.draftText.colors.text;
                              document.getElementById('outlineColorPicker').value = imgData.draftText.colors.outline;
@@ -2088,138 +2127,79 @@
                              document.getElementById('outlineCheck').checked = imgData.draftText.colors.hasOutline;
                              updateTextStyle();
                         }
-                        toggleTextVisibility(true);
-                        document.getElementById('textVisibleToggle').checked = true;
-                        openSubMenu('text');
-                        syncTextOverlayVisuals();
+                        toggleTextVisibility(true); document.getElementById('textVisibleToggle').checked = true;
+                        openSubMenu('text'); syncTextOverlayVisuals();
                     }
                 };
                 img.src = imgData.url;
 
                 headerFileName.innerText = imgData.name + ` (${imgData.draftDims.w}x${imgData.draftDims.h})*`;
-                document.getElementById('resizeW').value = imgData.draftDims.w; 
-                document.getElementById('resizeH').value = imgData.draftDims.h;
+                document.getElementById('resizeW').value = imgData.draftDims.w; document.getElementById('resizeH').value = imgData.draftDims.h;
                 switchView('editor'); 
                 
                 const viewport = document.getElementById('canvasViewport');
                 let fitScale = Math.min((viewport.clientWidth - 40) / imgData.draftDims.w, (viewport.clientHeight - 80) / imgData.draftDims.h);
-                // FIX: AUTO FIT CAP 2.5x
-                fitScale = Math.min(fitScale, 2.0);
-                fitScale = Math.max(fitScale, 0.1);
-                
-                pannedX = 0; pannedY = 0;
-                applyZoom(fitScale);
+                fitScale = Math.min(fitScale, 2.0); fitScale = Math.max(fitScale, 0.1);
+                pannedX = 0; pannedY = 0; applyZoom(fitScale);
                 return;
             }
+
+            // GAMBAR BARU (BELUM ADA DRAF)
+            appliedShadersList = [];
+            renderShaderBadges();
+            currentActiveShader = null;
+            btnApplyAll.classList.add('hidden');
 
             const img = new Image();
             img.onload = () => {
                 editorCanvas.width = img.width; editorCanvas.height = img.height;
                 ctx.imageSmoothingEnabled = false; 
                 ctx.clearRect(0,0,img.width, img.height); ctx.drawImage(img, 0, 0);
-                originalImportedImage = document.createElement('canvas'); originalImportedImage.width = img.width; originalImportedImage.height = img.height; originalImportedImage.getContext('2d').drawImage(img, 0, 0);
+                originalImportedImage = document.createElement('canvas'); 
+                originalImportedImage.width = img.width; originalImportedImage.height = img.height; 
+                originalImportedImage.getContext('2d').drawImage(img, 0, 0);
                 
                 headerFileName.innerText = imgData.name + ` (${img.width}x${img.height})`;
                 document.getElementById('resizeW').value = img.width; document.getElementById('resizeH').value = img.height;
                 switchView('editor'); 
                 
                 const viewport = document.getElementById('canvasViewport');
-                const padding = 40;
-                const availableW = viewport.clientWidth - padding; 
-                const availableH = viewport.clientHeight - padding; 
+                let fitScale = Math.min((viewport.clientWidth - 40) / img.width, (viewport.clientHeight - 40) / img.height);
+                fitScale = Math.min(fitScale, 2.0); fitScale = Math.max(fitScale, 0.1);
+                fitScale = Math.floor(fitScale * 10) / 10; if(fitScale === 0) fitScale = 0.1;
                 
-                let fitScale = Math.min(availableW / img.width, availableH / img.height);
-                
-                // FIX: AUTO FIT CAP 2.5x
-                fitScale = Math.min(fitScale, 2.0);
-                fitScale = Math.max(fitScale, 0.1);
-                
-                // Round
-                fitScale = Math.floor(fitScale * 10) / 10;
-                if(fitScale === 0) fitScale = 0.1;
-                
-                pannedX = 0; pannedY = 0;
-                applyZoom(fitScale);
+                pannedX = 0; pannedY = 0; applyZoom(fitScale);
             };
             img.src = imgData.url;
         }
 
         window.injectFromEditor = async () => {
-            if (isImportedImage) return; 
-            toggleTools(true);
-            
-            selectionBox.style.display = 'none'; selectionActive = false; brushCursor.style.display = 'none';
-            document.getElementById('loadingOverlay').classList.remove('hidden');
-            document.getElementById('loadingStatus').innerText = "Editor: Kompresi Cerdas...";
+            if (isImportedImage) return; toggleTools(true);
+            selectionBox.style.display = 'none'; selectionActive = false; 
+            document.getElementById('loadingOverlay').classList.remove('hidden'); document.getElementById('loadingStatus').innerText = "Editor: Kompresi...";
             await new Promise(r => setTimeout(r, 100)); 
-            
             try {
-                if(textState.visible || isTextVirtual) {
-                    await rasterizeTextLayer();
-                }
-                const w = editorCanvas.width; const h = editorCanvas.height;
-                const target = foundImages[currentEditorImageIndex];
+                if(textState.visible || isTextVirtual) { await rasterizeTextLayer(); }
+                const w = editorCanvas.width; const h = editorCanvas.height; const target = foundImages[currentEditorImageIndex];
+                const imageData = ctx.getImageData(0,0,w,h); const data = imageData.data;
+                if (target.isHidden) { for(let i=0; i<data.length; i+=4) { if (data[i+3] < 128) { data[i] = 0; data[i+1] = 0; data[i+2] = 0; data[i+3] = 0; } else { data[i+3] = 255; } } }
+                const buffer = new Uint8Array(data).buffer; const bestBuffer = await smartCompress(buffer, w, h, target.isHidden ? target.size : null);
                 
-                const imageData = ctx.getImageData(0,0,w,h);
-                const data = imageData.data;
-
-                // Hack Alpha untuk Embed
-                if (target.isHidden) {
-                    for(let i=0; i<data.length; i+=4) {
-                        if (data[i+3] < 128) {
-                            data[i] = 0; data[i+1] = 0; data[i+2] = 0; data[i+3] = 0; 
-                        } else {
-                            data[i+3] = 255; 
-                        }
-                    }
-                }
-                
-                const buffer = new Uint8Array(data).buffer;
-                const bestBuffer = await smartCompress(buffer, w, h, target.isHidden ? target.size : null);
-
                 if (bestBuffer) {
-                    const blob = new Blob([bestBuffer], {type:'image/png'});
-                    if(target.url) URL.revokeObjectURL(target.url);
-                    target.modifiedData = blob; target.blob = blob; target.url = URL.createObjectURL(blob); target.modified = true;
-                    if(target.draftData) delete target.draftData;
-                    if(target.draftUndoStack) delete target.draftUndoStack;
-                    renderList(); 
-
-                    // --- FITUR AUTO-RELOAD EDITOR ---
-                    const newImg = new Image();
-                    newImg.onload = () => {
-                        ctx.imageSmoothingEnabled = false; // Anti-blur!
-                        ctx.clearRect(0, 0, w, h);
-                        ctx.drawImage(newImg, 0, 0);
-                        
-                        // FIX: Simpan sebagai kanvas solid, BUKAN sebagai tag <image> 
-                        // agar tidak berubah warna saat di-reset nanti!
-                        const pristineCanvas = document.createElement('canvas');
-                        pristineCanvas.width = w; pristineCanvas.height = h;
-                        const pCtx = pristineCanvas.getContext('2d');
-                        pCtx.imageSmoothingEnabled = false;
-                        pCtx.drawImage(newImg, 0, 0);
-                        originalImportedImage = pristineCanvas; 
-                        
-                        // Bersihkan riwayat & kapsul
-                        if (typeof undoStack !== 'undefined') undoStack = [];
-                        if (typeof redoStack !== 'undefined') redoStack = [];
-                        appliedShadersList = [];
-                        renderShaderBadges();
-                        
-                        document.getElementById('loadingOverlay').classList.add('hidden');
-                        showNotification("Injeksi Sukses! Editor langsung diperbarui.", "success");
-                    };
-                    newImg.src = target.url;
+                    const blob = new Blob([bestBuffer], {type:'image/png'}); if(target.url) URL.revokeObjectURL(target.url); target.modifiedData = blob; target.blob = blob; target.url = URL.createObjectURL(blob); target.modified = true;
                     
-                } else {
-                    document.getElementById('loadingOverlay').classList.add('hidden');
-                    showNotification(`Gagal: Ukuran hasil melampaui batas slot embed.`, "error");
-                }
-            } catch(e) { 
-                document.getElementById('loadingOverlay').classList.add('hidden'); 
-                showNotification("Error: " + e.message, "error"); 
-            }
+                    // PERBAIKAN MUTLAK: Jangan hapus draft/memori! Perbarui dengan state saat ini
+                    // Kapsul dan Undo akan tetap hidup walau sudah diinjeksi
+                    target.draftData = ctx.getImageData(0,0,w,h);
+                    target.draftUndoStack = [...undoStack];
+                    target.draftBadges = [...appliedShadersList];
+                    
+                    renderList(); 
+                    
+                    document.getElementById('loadingOverlay').classList.add('hidden'); 
+                    showNotification("Injeksi Sukses! (Undo tetap aktif)", "success");
+                } else { document.getElementById('loadingOverlay').classList.add('hidden'); showNotification(`Gagal: Ukuran melampaui batas embed.`, "error"); }
+            } catch(e) { document.getElementById('loadingOverlay').classList.add('hidden'); showNotification("Error: " + e.message, "error"); }
         }
 
         window.revertImage = (index) => {
@@ -2357,7 +2337,11 @@
             updateTransform(); 
             if(textState.visible) syncTextOverlayVisuals();
         }
-        function updateTransform() { canvasWrapper.style.transform = `translate(${pannedX}px, ${pannedY}px) scale(${scale})`; }
+        function updateTransform() { 
+            canvasWrapper.style.transform = `translate(${pannedX}px, ${pannedY}px) scale(${scale})`; 
+            // FIX LOMPAT: Sinkronisasi overlay teks secara INSTAN tanpa jeda animasi
+            if(textState.visible) syncTextOverlayVisuals(); 
+        }
 
         window.downloadCurrentImage = () => {
              if(textState.visible || isTextVirtual) {
@@ -2462,56 +2446,47 @@
              document.getElementById('outlineSelectionModal').classList.remove('hidden');
         };
         
+        // FUNGSI NAVIGASI (Menyimpan Kapsul ke Memori Masing-masing Gambar)
         window.navigateEditor = (direction) => {
             if (foundImages.length === 0 || isImportedImage) {
-                showNotification("Navigasi tidak tersedia (Import/Kosong)", "error");
-                return;
+                showNotification("Navigasi tidak tersedia (Import/Kosong)", "error"); return;
             }
             
-            // SAVE CURRENT DRAFT
             if(currentEditorImageIndex > -1) {
                 const img = foundImages[currentEditorImageIndex];
                 img.draftData = ctx.getImageData(0,0,editorCanvas.width, editorCanvas.height);
                 img.draftDims = {w: editorCanvas.width, h: editorCanvas.height};
                 img.draftUndoStack = [...undoStack]; 
+                img.draftBadges = [...appliedShadersList]; // SIMPAN KAPSUL LOKAL
                 
                 if(textState.visible || isTextVirtual) {
                     img.draftText = {
-                        state: JSON.parse(JSON.stringify(textState)),
-                        content: textInner.innerText,
+                        state: JSON.parse(JSON.stringify(textState)), content: textInner.innerText,
                         colors: {
-                             text: document.getElementById('textColorPicker').value,
-                             outline: document.getElementById('outlineColorPicker').value,
-                             outlineSize: document.getElementById('outlineSizeSlider').value,
-                             hasOutline: document.getElementById('outlineCheck').checked
+                             text: document.getElementById('textColorPicker').value, outline: document.getElementById('outlineColorPicker').value,
+                             outlineSize: document.getElementById('outlineSizeSlider').value, hasOutline: document.getElementById('outlineCheck').checked
                         }
                     };
                 }
             }
 
-            // CHECK MENU STATE BEFORE NAVIGATING
             const isMenuOpen = !toolsSheet.classList.contains('translate-y-full');
-            let activeTab = 'file'; // Default fallback
+            let activeTab = 'file'; 
             if(document.getElementById('menu-brush').classList.contains('menu-btn-active')) activeTab = 'brush';
             if(document.getElementById('menu-eraser').classList.contains('menu-btn-active')) activeTab = 'eraser';
             if(document.getElementById('menu-text').classList.contains('menu-btn-active')) activeTab = 'text';
 
             let nextIndex = currentEditorImageIndex + direction;
-            
             if (nextIndex >= foundImages.length) nextIndex = 0;
             if (nextIndex < 0) nextIndex = foundImages.length - 1;
             
             loadToEditor(nextIndex);
 
-            // RESTORE MENU STATE
             if(isMenuOpen) {
-                // Force open without animation delay if possible, but toggleTools handles styling
-                toggleTools(false);
-                // Switch back to the active tab (re-shows the panel)
-                openSubMenu(activeTab);
+                toggleTools(false); openSubMenu(activeTab);
             }
         };
-
+		
         window.applyShader = async (type) => {
             if (!originalImportedImage) { showNotification("Error: Tidak ada data asli!", "error"); return; }
             
