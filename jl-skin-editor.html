@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
+    <title>JL Skin Editor</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        body {
+            background-color: #020617; /* Slate 950 */
+            color: #e2e8f0;
+            overscroll-behavior: none;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden; 
+            position: fixed;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .canvas-bg {
+            background-image: 
+                linear-gradient(45deg, #1e293b 25%, transparent 25%), 
+                linear-gradient(-45deg, #1e293b 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #1e293b 75%), 
+                linear-gradient(-45deg, transparent 75%, #1e293b 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+        
+        .cursor-none { cursor: none !important; }
+        .cursor-grab { cursor: grab !important; }
+        .cursor-grabbing { cursor: grabbing !important; }
+        .cursor-resize { cursor: nwse-resize !important; }
+
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+        @keyframes popIn { 
+            0% { opacity: 0; transform: scale(0.9); } 
+            100% { opacity: 1; transform: scale(1); } 
+        }
+        .animate-pop-in { animation: popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+        @keyframes popInCenter { 
+            0% { opacity: 0; transform: scale(0.9) translateX(-50%); } 
+            100% { opacity: 1; transform: scale(1) translateX(-50%); } 
+        }
+        .animate-pop-in-center { animation: popInCenter 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .animate-fade-in { animation: fadeIn 0.2s ease-out forwards; }
+
+        input[type=range].slider-v {
+            writing-mode: bt-lr; 
+            -webkit-appearance: slider-vertical; 
+            width: 8px; height: 100%; padding: 0 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+        const DB_NAME = 'JLSkinEditorDB';
+        const STORE_NAME = 'assets';
+        const DB_VERSION = 1;
+
+        const initDB = () => {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+                        store.createIndex('category', 'category', { unique: false });
+                    }
+                };
+                request.onsuccess = (event) => resolve(event.target.result);
+                request.onerror = (event) => reject(event.target.error);
+            });
+        };
+
+        const saveAssetToDB = async (asset) => {
+            const db = await initDB();
+            return new Promise((resolve) => {
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                tx.objectStore(STORE_NAME).add(asset);
+                tx.oncomplete = () => resolve(true);
+            });
+        };
+
+        const updateAssetFolder = async (id, newFolder) => {
+            const db = await initDB();
+            return new Promise((resolve) => {
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                store.get(id).onsuccess = (e) => {
+                    const data = e.target.result;
+                    if(data) { data.subFolder = newFolder; store.put(data); }
+                    tx.oncomplete = () => resolve(true);
+                };
+            });
+        };
+
+        const getAssetsFromDB = async (category) => {
+            const db = await initDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, 'readonly');
+                const request = tx.objectStore(STORE_NAME).index('category').getAll(category);
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject([]);
+            });
+        };
+
+        const deleteAssetFromDB = async (id) => {
+            const db = await initDB();
+            return new Promise((resolve) => {
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                tx.objectStore(STORE_NAME).delete(id);
+                tx.oncomplete = () => resolve(true);
+            });
+        };
+
+        const Icon = ({ name, size = 20, className, strokeWidth = 2 }) => {
+            useEffect(() => { lucide.createIcons(); }, [name]);
+            return <i data-lucide={name} width={size} height={size} className={className} stroke-width={strokeWidth}></i>;
+        };
+
+        const CustomModal = ({ config, onClose }) => {
+            const [inputValue, setInputValue] = useState('');
+            if (!config) return null;
+            return (
+                <div className="absolute inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-2xl p-5 shadow-2xl animate-pop-in">
+                        <h3 className="text-lg font-bold text-white mb-2">{config.title}</h3>
+                        <p className="text-slate-400 text-sm mb-4">{config.message}</p>
+                        {config.type === 'prompt' && (
+                            <input type="text" autoFocus value={inputValue} onChange={(e) => setInputValue(e.target.value)} placeholder={config.placeholder || ''} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white mb-4 focus:border-blue-500 focus:outline-none" />
+                        )}
+                        <div className="flex gap-3 justify-end">
+                            {config.type !== 'alert' && <button onClick={() => { config.onCancel && config.onCancel(); onClose(); }} className="px-4 py-2 text-slate-400 hover:text-white text-sm font-medium">Batal</button>}
+                            <button onClick={() => { if (config.type === 'prompt') config.onConfirm(inputValue); else config.onConfirm && config.onConfirm(); onClose(); }} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold shadow-lg">{config.confirmText || 'Oke'}</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [image, setImage] = useState(null); 
+            const [layers, setLayers] = useState([]); 
+            const [history, setHistory] = useState([]);
+            const [historyStep, setHistoryStep] = useState(-1);
+
+            const [tool, setTool] = useState('move'); 
+            const [isHandMode, setIsHandMode] = useState(false);
+            const [subTool, setSubTool] = useState('normal'); 
+            const [brushColor, setBrushColor] = useState('#ff0000');
+            const [brushSize, setBrushSize] = useState(10);
+            
+            const [showLibrary, setShowLibrary] = useState(false);
+            const [libraryCategory, setLibraryCategory] = useState('Bingkai'); 
+            const [libraryAssets, setLibraryAssets] = useState([]);
+            const [activeSubFolder, setActiveSubFolder] = useState(null);
+            const [modalConfig, setModalConfig] = useState(null); 
+            
+            const [cursorPos, setCursorPos] = useState({ x: -1000, y: -1000 });
+            const [cursorStyle, setCursorStyle] = useState('default');
+
+            const [scale, setScale] = useState(1);
+            const [offset, setOffset] = useState({ x: 0, y: 0 });
+            const [isDragging, setIsDragging] = useState(false); 
+            const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+            const [activeLayerId, setActiveLayerId] = useState(null);
+            
+            const [resizeHandle, setResizeHandle] = useState(null); 
+
+            const [selection, setSelection] = useState(null);
+            const [cutMode, setCutMode] = useState('idle');
+            const [cutDragAction, setCutDragAction] = useState(null);
+            const [showCutModal, setShowCutModal] = useState(false);
+            const [tempCutImage, setTempCutImage] = useState(null);
+            const [cutCategory, setCutCategory] = useState('Tombol');
+            const [cutSubFolderInput, setCutSubFolderInput] = useState('');
+
+            // -- Template & Editor State --
+            const [tmplSettings, setTmplSettings] = useState({
+                w: 300, h: 600, radius: 20, style: 'round', 
+                innerW: 250, innerH: 200, innerYOffset: -100, color: '#e2e8f0'
+            });
+            const [editingTemplateId, setEditingTemplateId] = useState(null);
+const [isHoleOpen, setIsHoleOpen] = useState(false);
+
+
+            
+            // Editor Draggable State
+            const [editorPos, setEditorPos] = useState({ x: 20, y: 100 });
+            const [isDraggingEditor, setIsDraggingEditor] = useState(false);
+            const editorDragStartRef = useRef({ x: 0, y: 0 });
+
+            const activePointers = useRef(new Map());
+            const prevPinchDist = useRef(null);
+            const scaleRef = useRef(1);
+            const offsetRef = useRef({x:0, y:0});
+
+            const CATEGORIES = ['Bingkai', 'D-Pad', 'Tombol', 'Menu', 'Trigger', 'Ikon', 'Koleksi'];
+            const canvasRef = useRef(null);
+            const containerRef = useRef(null);
+            const fileInputRef = useRef(null);
+            const collectionInputRef = useRef(null);
+
+            useEffect(() => { scaleRef.current = scale; }, [scale]);
+            useEffect(() => { offsetRef.current = offset; }, [offset]);
+            useEffect(() => { lucide.createIcons(); loadAssets('Bingkai'); }, []);
+            
+                        useEffect(() => {
+                if (window.innerWidth) {
+                    setEditorPos({ 
+                        x: (window.innerWidth / 2) - 128, 
+                        y: window.innerHeight - 425 
+                    });
+                }
+            }, []);
+
+
+            const showAlert = (t, m) => { setModalConfig({ type: 'alert', title: t, message: m, onConfirm: () => {} }); };
+            const showConfirm = (t, m, onOk, onCancel) => { setModalConfig({ type: 'confirm', title: t, message: m, onConfirm: onOk, onCancel, confirmText: 'Ya' }); };
+            const showPrompt = (t, m, onOk, ph) => { setModalConfig({ type: 'prompt', title: t, message: m, onConfirm: onOk, placeholder: ph, confirmText: 'Simpan' }); };
+
+            const createLayerCanvas = (imgSource) => {
+                const c = document.createElement('canvas');
+                c.width = imgSource.width; c.height = imgSource.height;
+                const ctx = c.getContext('2d'); ctx.drawImage(imgSource, 0, 0);
+                return c;
+            };
+
+            const fitImageToScreen = (img = image) => {
+                if (!img || !containerRef.current) return;
+                const contW = containerRef.current.clientWidth;
+                const contH = containerRef.current.clientHeight;
+                const sc = Math.min((contW - 40) / img.width, (contH - 40) / img.height);
+                setScale(Math.max(0.1, sc));
+                setOffset({ x: (contW - img.width * Math.max(0.1, sc)) / 2, y: (contH - img.height * Math.max(0.1, sc)) / 2 });
+            };
+
+            const handleClearCanvas = () => {
+                showConfirm('Bersihkan Kanvas', 'Hapus semua pekerjaan?', () => {
+                    setImage(null); setLayers([]); setHistory([]); setHistoryStep(-1); setEditingTemplateId(null);
+                });
+            };
+
+            const drawRoundRect = (ctx, x, y, w, h, r) => {
+                if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
+                ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+            };
+
+            const drawTemplateShape = (ctx, w, h, settings) => {
+                const { radius, style, innerW, innerH, innerYOffset, color } = settings;
+                ctx.clearRect(0,0,w,h); ctx.fillStyle = color;
+                if (style === 'box') { ctx.beginPath(); ctx.rect(0, 0, w, h); ctx.fill(); }
+                else if (style === 'round') { drawRoundRect(ctx, 0, 0, w, h, radius); ctx.fill(); }
+                else if (style === 'gameboy') { ctx.beginPath(); ctx.moveTo(0, radius); ctx.arcTo(0, 0, radius, 0, radius/2); ctx.lineTo(w - radius/2, 0); ctx.arcTo(w, 0, w, radius/2, radius/2); ctx.lineTo(w, h - radius*3); ctx.arcTo(w, h, w - radius*3, h, radius*3); ctx.lineTo(radius/2, h); ctx.arcTo(0, h, 0, h - radius/2, radius/2); ctx.closePath(); ctx.fill(); }
+                else if (style === 'arch') { ctx.beginPath(); ctx.moveTo(0, h); ctx.lineTo(0, h/2); ctx.arcTo(0, 0, w/2, 0, w/2); ctx.arcTo(w, 0, w, h/2, w/2); ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.fill(); }
+                ctx.globalCompositeOperation = 'destination-out';
+                const holeX = (w - innerW) / 2; const holeY = (h - innerH) / 2 + innerYOffset;
+                ctx.fillStyle = 'black'; drawRoundRect(ctx, holeX, holeY, innerW, innerH, 5); ctx.fill();
+                ctx.globalCompositeOperation = 'source-over';
+            };
+
+                        const createTemplate = () => {
+                const proceedWithCreation = () => {
+                    // Reset Workspace
+                    setImage(null);
+                    setLayers([]);
+                    setHistory([]);
+                    setHistoryStep(-1);
+
+                    const { w, h } = tmplSettings;
+                    const c = document.createElement('canvas'); 
+                    c.width = w; 
+                    c.height = h;
+                    const ctx = c.getContext('2d'); 
+                    drawTemplateShape(ctx, w, h, tmplSettings);
+                    
+                    // Buat Base Canvas baru
+                    const bg = document.createElement('canvas');
+                    const contW = containerRef.current ? containerRef.current.clientWidth : 1080;
+                    const contH = containerRef.current ? containerRef.current.clientHeight : 1920;
+                    bg.width = contW; bg.height = contH;
+                    setImage(bg);
+
+                    const sc = Math.min((contW - 40) / bg.width, (contH - 40) / bg.height);
+                    const currentScale = Math.max(0.1, sc);
+                    const currentOffset = { x: (contW - bg.width * currentScale) / 2, y: (contH - bg.height * currentScale) / 2 };
+                    
+                    setScale(currentScale); 
+                    setOffset(currentOffset);
+
+                    const startX = (contW / 2 - currentOffset.x) / currentScale - w / 2;
+                    const startY = (contH / 2 - currentOffset.y) / currentScale - h / 2;
+
+                    const nl = { id: Date.now(), canvas: c, x: startX, y: startY, w: w, h: h, isTemplate: true };
+                    setLayers([nl]); 
+                    setActiveLayerId(nl.id); 
+                    setEditingTemplateId(nl.id); 
+                    setTimeout(saveToHistory, 100);
+                };
+
+                if (image || layers.length > 0) {
+                    showConfirm(
+                        'Template Baru', 
+                        'Membuat template akan menghapus semua lapisan yang ada agar fokus pada desain template. Lanjutkan?', 
+                        proceedWithCreation
+                    );
+                } else {
+                    proceedWithCreation();
+                }
+            };
+
+
+            useEffect(() => {
+                if (editingTemplateId) {
+                    setLayers(prev => prev.map(l => {
+                        if (l.id === editingTemplateId) {
+                            const { w, h } = tmplSettings;
+                            if (l.canvas.width !== w || l.canvas.height !== h) { 
+                                l.canvas.width = w; l.canvas.height = h; 
+                                const ctx = l.canvas.getContext('2d'); drawTemplateShape(ctx, w, h, tmplSettings);
+                                return { ...l, w, h };
+                            }
+                            const ctx = l.canvas.getContext('2d'); drawTemplateShape(ctx, w, h, tmplSettings);
+                            return l;
+                        } return l;
+                    }));
+                }
+            }, [tmplSettings, editingTemplateId]);
+
+            const finishTemplate = () => { setEditingTemplateId(null); saveToHistory(); };
+            
+            const deleteActiveTemplate = () => {
+                if (editingTemplateId) {
+                    setLayers(prev => prev.filter(l => l.id !== editingTemplateId));
+                    setEditingTemplateId(null); setActiveLayerId(null); setTimeout(saveToHistory, 100);
+                }
+            };
+
+            const activeLayer = layers.find(l => l.id === activeLayerId);
+
+            const saveToHistory = useCallback(() => {
+                if (!image && layers.length === 0) return;
+                const serializedLayers = layers.map(l => ({ ...l, dataURL: l.canvas.toDataURL(), isTemplate: l.isTemplate }));
+                const currentState = { baseData: image ? (image.toDataURL ? image.toDataURL() : image.src) : null, layers: serializedLayers };
+                const newHistory = history.slice(0, historyStep + 1); newHistory.push(currentState);
+                if (newHistory.length > 15) newHistory.shift(); setHistory(newHistory); setHistoryStep(newHistory.length - 1);
+            }, [image, layers, history, historyStep]);
+
+            const loadState = (state) => {
+                if (state.baseData) { const baseImg = new Image(); baseImg.src = state.baseData; baseImg.onload = () => setImage(createLayerCanvas(baseImg)); } else setImage(null);
+                setLayers(state.layers.map(l => {
+                    const i = new Image(); i.src = l.dataURL; const c = document.createElement('canvas');
+                    i.onload = () => { c.width = i.width; c.height = i.height; c.getContext('2d').drawImage(i, 0, 0); };
+                    return { ...l, canvas: c, img: i, isTemplate: l.isTemplate };
+                }));
+            };
+            const undo = () => { if (historyStep > 0) setHistoryStep(p => { loadState(history[p - 1]); return p - 1; }); };
+            const redo = () => { if (historyStep < history.length - 1) setHistoryStep(p => { loadState(history[p + 1]); return p + 1; }); };
+            useEffect(() => { if (history.length === 0 && (image || layers.length > 0)) saveToHistory(); }, [image]);
+            const loadAssets = async (cat) => { setLibraryAssets(await getAssetsFromDB(cat)); setActiveSubFolder(null); };
+
+            const uniqueSubFolders = useMemo(() => Array.from(new Set(libraryAssets.map(a => a.subFolder).filter(Boolean))).sort(), [libraryAssets]);
+            const filteredAssets = useMemo(() => (!activeSubFolder ? libraryAssets : libraryAssets.filter(a => a.subFolder === activeSubFolder)), [libraryAssets, activeSubFolder]);
+            const handleEditFolder = (asset) => { showPrompt('Edit Folder', 'Nama folder baru:', (n) => updateAssetFolder(asset.id, n).then(() => loadAssets(libraryCategory)), asset.subFolder); };
+            const handleDownloadAsset = (asset) => { const a = document.createElement('a'); a.href = asset.src; a.download = `asset_${asset.category}_${Date.now()}.png`; a.click(); };
+
+            useEffect(() => {
+                const canvas = canvasRef.current; if (!canvas || !containerRef.current) return;
+                const ctx = canvas.getContext('2d');
+                canvas.width = containerRef.current.clientWidth; canvas.height = containerRef.current.clientHeight;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.save(); ctx.translate(offset.x, offset.y); ctx.scale(scale, scale); ctx.imageSmoothingEnabled = false;
+
+                if (image) ctx.drawImage(image, 0, 0);
+                layers.forEach(l => { if(l.canvas) {
+                    ctx.drawImage(l.canvas, l.x, l.y, l.w, l.h);
+                    if (l.id === activeLayerId) {
+                        ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 2/scale; ctx.strokeRect(l.x, l.y, l.w, l.h);
+                        const hs = 10/scale; ctx.fillStyle = '#white'; ctx.strokeStyle='#22c55e'; ctx.lineWidth=1/scale;
+                        const drawHandle = (hx, hy) => { ctx.beginPath(); ctx.rect(hx - hs/2, hy - hs/2, hs, hs); ctx.fillStyle = 'white'; ctx.fill(); ctx.stroke(); };
+                        drawHandle(l.x, l.y); drawHandle(l.x + l.w, l.y); drawHandle(l.x, l.y + l.h); drawHandle(l.x + l.w, l.y + l.h);
+                    }
+                }});
+
+                if (tool === 'cut' && selection) {
+                    ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 1/scale; ctx.setLineDash([4/scale, 4/scale]);
+                    ctx.strokeRect(selection.x, selection.y, selection.w, selection.h); ctx.setLineDash([]);
+                    ctx.fillStyle = 'rgba(59, 130, 246, 0.15)'; ctx.fillRect(selection.x, selection.y, selection.w, selection.h);
+                    if (cutMode === 'editing') { const hs = 10/scale; ctx.fillStyle = 'white'; ctx.fillRect((selection.x+selection.w)-hs/2, (selection.y+selection.h)-hs/2, hs, hs); }
+                }
+
+                if ((tool === 'brush' || tool === 'eraser') && !isHandMode) {
+                    const cvsPt = getCanvasPoint(cursorPos.x, cursorPos.y);
+                    ctx.strokeStyle = tool === 'eraser' ? 'white' : brushColor; ctx.lineWidth = 1/scale; ctx.shadowColor = 'black'; ctx.shadowBlur = 2;
+                    ctx.strokeRect(cvsPt.x - brushSize/2, cvsPt.y - brushSize/2, brushSize, brushSize); ctx.shadowBlur = 0;
+                }
+                ctx.restore();
+            }, [image, layers, offset, scale, selection, activeLayerId, tool, cursorPos, brushColor, brushSize, isHandMode, cutMode, isDragging, tmplSettings, editorPos]);
+
+            const getCanvasPoint = (cx, cy) => { const r = canvasRef.current.getBoundingClientRect(); return { x: (cx - r.left - offset.x)/scale, y: (cy - r.top - offset.y)/scale }; };
+            
+            const getResizeHandle = (pt, layer) => {
+                if(!layer) return null;
+                const hs = 15/scale;
+                const check = (x, y) => Math.abs(pt.x - x) < hs && Math.abs(pt.y - y) < hs;
+                if(check(layer.x, layer.y)) return 'tl';
+                if(check(layer.x + layer.w, layer.y)) return 'tr';
+                if(check(layer.x, layer.y + layer.h)) return 'bl';
+                if(check(layer.x + layer.w, layer.y + layer.h)) return 'br';
+                return null;
+            };
+
+            const handlePointerDown = (e) => {
+                e.target.setPointerCapture(e.pointerId);
+                activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+                if (activePointers.current.size === 2) {
+                    const points = Array.from(activePointers.current.values());
+                    prevPinchDist.current = Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+                    setIsDragging('pinch');
+                    return;
+                }
+
+                if (activePointers.current.size === 1) {
+                    const pt = getCanvasPoint(e.clientX, e.clientY); setCursorPos({x:e.clientX, y:e.clientY});
+                    
+                    if(isHandMode) { setIsDragging('pan'); setDragStart({x:e.clientX-offset.x, y:e.clientY-offset.y}); return; }
+                    
+                    if(tool==='move' || tool==='editor') {
+                        if(activeLayerId) {
+                            const l = layers.find(l=>l.id===activeLayerId);
+                            const handle = getResizeHandle(pt, l);
+                            if(handle) {
+                                setIsDragging('resize'); setResizeHandle(handle);
+                                setDragStart({ x: pt.x, y: pt.y, origX: l.x, origY: l.y, origW: l.w, origH: l.h });
+                                return;
+                            }
+                        }
+                        const l = layers.slice().reverse().find(l=>pt.x>=l.x && pt.x<=l.x+l.w && pt.y>=l.y && pt.y<=l.y+l.h);
+                        if(l){ 
+                            setActiveLayerId(l.id); setIsDragging('layer'); setDragStart({x:pt.x-l.x, y:pt.y-l.y}); 
+                            if(l.isTemplate) { setEditingTemplateId(l.id); setTmplSettings(prev => ({...prev, w: l.w, h: l.h})); }
+                        } else { 
+                            setActiveLayerId(null); setEditingTemplateId(null); setIsDragging('pan'); setDragStart({x:e.clientX-offset.x, y:e.clientY-offset.y}); 
+                        }
+                        return;
+                    }
+                    if(tool==='cut') {
+                        if(cutMode==='editing' && selection) {
+                            const r=selection.x+selection.w, b=selection.y+selection.h, tol=20/scale;
+                            if(Math.abs(pt.x-r)<tol && Math.abs(pt.y-b)<tol) { setCutDragAction('resize-br'); setIsDragging(true); }
+                            else if(pt.x>=selection.x && pt.x<=r && pt.y>=selection.y && pt.y<=b) { setCutDragAction('move-sel'); setDragStart({x:pt.x-selection.x, y:pt.y-selection.y}); setIsDragging(true); }
+                            else { setCutMode('drawing'); setSelection({x:pt.x, y:pt.y, w:0, h:0, startX:pt.x, startY:pt.y}); setIsDragging(true); }
+                        } else { setCutMode('drawing'); setSelection({x:pt.x, y:pt.y, w:0, h:0, startX:pt.x, startY:pt.y}); setIsDragging(true); }
+                        return;
+                    }
+                    if(tool==='brush'||tool==='eraser') {
+                        const l = layers.slice().reverse().find(l=>pt.x>=l.x && pt.x<=l.x+l.w && pt.y>=l.y && pt.y<=l.y+l.h); setActiveLayerId(l?l.id:null);
+                        if(subTool==='fill') performFloodFill(pt.x, pt.y, tool==='eraser'); else { setIsDragging('draw'); performDraw(pt.x, pt.y, tool==='eraser'); }
+                    }
+                    if(tool==='pipette') pickColor(pt.x, pt.y);
+                }
+            };
+
+            const handlePointerMove = (e) => {
+                activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+                if (activePointers.current.size === 2) {
+                    const points = Array.from(activePointers.current.values());
+                    const dist = Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+                    if (prevPinchDist.current) {
+                        const currentScale = scaleRef.current; const currentOffset = offsetRef.current;
+                        const zoomFactor = dist / prevPinchDist.current;
+                        const newScale = Math.min(Math.max(0.1, currentScale * zoomFactor), 10);
+                        const cx = (points[0].x + points[1].x) / 2; const cy = (points[0].y + points[1].y) / 2;
+                        const r = canvasRef.current.getBoundingClientRect();
+                        const pinchX = cx - r.left; const pinchY = cy - r.top;
+                        const newOffsetX = pinchX - (pinchX - currentOffset.x) * (newScale / currentScale);
+                        const newOffsetY = pinchY - (pinchY - currentOffset.y) * (newScale / currentScale);
+                        setOffset({ x: newOffsetX, y: newOffsetY }); setScale(newScale);
+                    }
+                    prevPinchDist.current = dist;
+                    return; 
+                }
+
+                setCursorPos({x:e.clientX, y:e.clientY}); const pt = getCanvasPoint(e.clientX, e.clientY);
+                if(isHandMode || isDragging==='pan') setCursorStyle(isDragging?'grabbing':'grab');
+                else if(tool==='brush'||tool==='eraser') setCursorStyle('none');
+                else if(activeLayerId && !isDragging && getResizeHandle(pt, layers.find(l=>l.id===activeLayerId))) setCursorStyle('resize');
+                else setCursorStyle('default');
+
+                if(!isDragging || activePointers.current.size > 1) return;
+
+                if(isDragging==='pan') setOffset({x:e.clientX-dragStart.x, y:e.clientY-dragStart.y});
+                else if(isDragging==='layer' && activeLayerId) setLayers(prev=>prev.map(l=>l.id===activeLayerId?{...l, x:pt.x-dragStart.x, y:pt.y-dragStart.y}:l));
+                                else if (isDragging === 'resize' && activeLayerId) {
+                    setLayers(prev => prev.map(l => {
+                        if (l.id !== activeLayerId) return l;
+                        let nx = l.x, ny = l.y, nw = l.w, nh = l.h;
+                        const { origX, origY, origW, origH, x: startX, y: startY } = dragStart;
+                        const dx = pt.x - startX; const dy = pt.y - startY;
+                        if (resizeHandle === 'br') { nw = Math.max(10, origW + dx); nh = Math.max(10, origH + dy); }
+                        else if (resizeHandle === 'bl') { nx = Math.min(origX + origW - 10, origX + dx); nw = origW - (nx - origX); nh = Math.max(10, origH + dy); }
+                        else if (resizeHandle === 'tr') { ny = Math.min(origY + origH - 10, origY + dy); nw = Math.max(10, origW + dx); nh = origH - (ny - origY); }
+                        else if (resizeHandle === 'tl') { nx = Math.min(origX + origW - 10, origX + dx); ny = Math.min(origY + origH - 10, origY + dy); nw = origW - (nx - origX); nh = origH - (ny - origY); }
+                        
+                        // Bulatkan nilai pixel agar tidak ada desimal panjang
+                        nx = Math.round(nx); ny = Math.round(ny); nw = Math.round(nw); nh = Math.round(nh);
+
+                        if(l.isTemplate && l.id === editingTemplateId) setTmplSettings(prevSettings => ({...prevSettings, w: nw, h: nh}));
+                        return { ...l, x: nx, y: ny, w: nw, h: nh };
+                    }));
+                }
+
+                else if(tool==='cut') {
+                    if(cutMode==='drawing') { let w=pt.x-selection.startX, h=pt.y-selection.startY; setSelection({...selection, w:Math.abs(w), h:Math.abs(h), x:w<0?selection.startX+w:selection.startX, y:h<0?selection.startY+h:selection.startY}); }
+                    else if(cutDragAction==='move-sel') setSelection({...selection, x:pt.x-dragStart.x, y:pt.y-dragStart.y});
+                    else if(cutDragAction==='resize-br') setSelection({...selection, w:Math.max(5, pt.x-selection.x), h:Math.max(5, pt.y-selection.y)});
+                } else if(isDragging==='draw') performDraw(pt.x, pt.y, tool==='eraser');
+            };
+
+            const handlePointerUp = (e) => {
+                activePointers.current.delete(e.pointerId);
+                if (activePointers.current.size < 2) prevPinchDist.current = null;
+                if (activePointers.current.size === 0) {
+                    if(isDragging==='draw'||isDragging==='layer'||isDragging==='resize'||cutDragAction) saveToHistory();
+                    setIsDragging(false); setResizeHandle(null); setCutDragAction(null); 
+                    if(tool==='cut'&&cutMode==='drawing') { 
+                        if(selection&&selection.w>5&&selection.h>5) setCutMode('editing'); else { setSelection(null); setCutMode('idle'); }
+                    }
+                }
+            };
+            const handleWheel = (e) => { e.preventDefault(); const s = Math.min(Math.max(0.1, scale + (e.deltaY > 0 ? -0.1 : 0.1) * scale), 10); const r = canvasRef.current.getBoundingClientRect(); const mx = e.clientX-r.left, my = e.clientY-r.top; setOffset({x: mx - (mx-offset.x)*(s/scale), y: my - (my-offset.y)*(s/scale)}); setScale(s); };
+
+            const performDraw = (x, y, isEraser) => {
+                let target = image, dx=x, dy=y; if(activeLayerId) { const l = layers.find(l=>l.id===activeLayerId); if(l){ target=l.canvas; dx=x-l.x; dy=y-l.y; } } if(!target) return;
+                const ctx = target.getContext('2d'); ctx.globalCompositeOperation = isEraser?'destination-out':'source-over'; ctx.fillStyle = brushColor; ctx.fillRect(dx-brushSize/2, dy-brushSize/2, brushSize, brushSize); setLayers(p=>[...p]);
+            };
+            const performFloodFill = (x, y, isEraser) => { 
+                let target = image, sx=x, sy=y; if(activeLayerId) { const l = layers.find(l=>l.id===activeLayerId); if(l){ target=l.canvas; sx=x-l.x; sy=y-l.y; } } if(!target) return;
+                const ctx = target.getContext('2d'), w=target.width, h=target.height; if(sx<0||sy<0||sx>=w||sy>=h) return;
+                const d=ctx.getImageData(0,0,w,h).data, sIdx=(Math.floor(sy)*w+Math.floor(sx))*4; const sr=d[sIdx], sg=d[sIdx+1], sb=d[sIdx+2], sa=d[sIdx+3];
+                let tr=0, tg=0, tb=0, ta=0; if(!isEraser) { const r=parseInt(brushColor.slice(1,3),16), g=parseInt(brushColor.slice(3,5),16), b=parseInt(brushColor.slice(5,7),16); tr=r;tg=g;tb=b;ta=255; }
+                const stack=[[Math.floor(sx), Math.floor(sy)]], seen=new Uint8Array(w*h);
+                while(stack.length) { const [cx, cy] = stack.pop(), i=(cy*w+cx)*4; if(seen[cy*w+cx]) continue; if(Math.abs(d[i]-sr)<30 && Math.abs(d[i+1]-sg)<30 && Math.abs(d[i+2]-sb)<30 && Math.abs(d[i+3]-sa)<30) { d[i]=tr; d[i+1]=tg; d[i+2]=tb; d[i+3]=ta; seen[cy*w+cx]=1; if(cx>0) stack.push([cx-1,cy]); if(cx<w-1) stack.push([cx+1,cy]); if(cy>0) stack.push([cx,cy-1]); if(cy<h-1) stack.push([cx,cy+1]); } }
+                ctx.putImageData(new ImageData(d, w, h), 0, 0); saveToHistory(); setLayers(p=>[...p]);
+            };
+            
+            // --- RESTORED SMART FILL CUT LOGIC ---
+            const executeCut = () => {
+                // Determine target: active layer OR base image
+                let target = image;
+                let tx = 0, ty = 0;
+                if (activeLayerId) {
+                    const l = layers.find(l => l.id === activeLayerId);
+                    if (l) { target = l.canvas; tx = l.x; ty = l.y; }
+                }
+                
+                if (!target || !selection) return; 
+                const ctx = target.getContext('2d');
+                
+                // Adjust selection coordinates to target's local space
+                const sx = Math.round(selection.x - tx);
+                const sy = Math.round(selection.y - ty);
+                const sw = Math.round(selection.w);
+                const sh = Math.round(selection.h);
+                
+                // Get image data from target
+                const cutData = ctx.getImageData(sx, sy, sw, sh);
+                
+                // Smart Fill Logic (Restored V19/V20 Logic)
+                let r=0, g=0, b=0, count=0; 
+                const padding = 2; 
+                const w = target.width; const h = target.height;
+                const maxSx = Math.max(0, sx - padding);
+                const maxSy = Math.max(0, sy - padding);
+                const maxSw = Math.min(w, sx + sw + padding) - maxSx;
+                const maxSh = Math.min(h, sy + sh + padding) - maxSy;
+
+                const surroundingData = ctx.getImageData(maxSx, maxSy, maxSw, maxSh);
+                const sd = surroundingData.data;
+
+                // Loop through the surrounding area
+                for(let py=0; py<maxSh; py++) {
+                    for(let px=0; px<maxSw; px++) {
+                        const absX = maxSx + px;
+                        const absY = maxSy + py;
+                        
+                        // SKIP pixels that are INSIDE the cut area
+                        if (absX >= sx && absX < sx + sw && absY >= sy && absY < sy + sh) {
+                            continue;
+                        }
+                        
+                        const i = (py * maxSw + px) * 4;
+                        if (sd[i+3] > 0) { // If pixel is not transparent
+                            r += sd[i]; g += sd[i+1]; b += sd[i+2]; count++;
+                        }
+                    }
+                }
+                
+                if (count > 0) { 
+                    const avgColor = `rgb(${Math.round(r/count)}, ${Math.round(g/count)}, ${Math.round(b/count)})`; 
+                    ctx.fillStyle = avgColor; 
+                    ctx.fillRect(sx, sy, sw, sh); 
+                } else { 
+                    ctx.clearRect(sx, sy, sw, sh); 
+                }
+                
+                // Prepare result image (Remove BG logic)
+                const d=cutData.data, br=d[0], bg=d[1], bb=d[2], ba=d[3]; 
+                if(ba>0) for(let i=0;i<d.length;i+=4) if(Math.abs(d[i]-br)<40 && Math.abs(d[i+1]-bg)<40 && Math.abs(d[i+2]-bb)<40) d[i+3]=0;
+                
+                const cv=document.createElement('canvas'); 
+                cv.width=sw; cv.height=sh; 
+                cv.getContext('2d').putImageData(cutData,0,0);
+                
+                setTempCutImage(cv.toDataURL()); 
+                setShowCutModal(true); 
+                saveToHistory(); 
+                setSelection(null); 
+                setCutMode('idle'); 
+                setCutSubFolderInput('');
+                // Force update for layer change
+                if(activeLayerId) setLayers(p => [...p]);
+            };
+
+            const saveCutToLibrary = async () => { if(!tempCutImage) return; await saveAssetToDB({category:cutCategory, subFolder:cutSubFolderInput.trim()||null, src:tempCutImage, createdAt:Date.now()}); setShowCutModal(false); setTempCutImage(null); setTool('move'); loadAssets(libraryCategory); };
+            const pasteCutToCanvas = () => { if(!tempCutImage) return; const i=new Image(); i.src=tempCutImage; i.onload=()=>{ const c=createLayerCanvas(i); const nl={id:Date.now(), canvas:c, x:50, y:50, w:i.width, h:i.height}; setLayers(p=>[...p,nl]); setActiveLayerId(nl.id); saveToHistory(); }; setShowCutModal(false); setTempCutImage(null); setTool('move'); };
+            const handleUpload = (e) => { const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=ev=>{ const i=new Image(); i.onload=()=>{ setImage(createLayerCanvas(i)); setLayers([]); setHistory([]); fitImageToScreen(i); }; i.src=ev.target.result; }; r.readAsDataURL(f); };
+            
+            const handleCollectionUpload = (e) => {
+                const files = e.target.files; if (!files || files.length === 0) return;
+                Array.from(files).forEach(file => {
+                    const r = new FileReader();
+                    r.onload = async (ev) => { await saveAssetToDB({ category: 'Koleksi', subFolder: null, src: ev.target.result, createdAt: Date.now() }); loadAssets('Koleksi'); };
+                    r.readAsDataURL(file);
+                });
+            };
+
+            const downloadSkin = () => { if(!image) return; const c=document.createElement('canvas'); c.width=image.width; c.height=image.height; const ctx=c.getContext('2d'); ctx.drawImage(image,0,0); layers.forEach(l=>ctx.drawImage(l.canvas,l.x,l.y,l.w,l.h)); const l=document.createElement('a'); l.download='jl_skin.png'; l.href=c.toDataURL(); l.click(); };
+            const pickColor = (x, y) => { const c=document.createElement('canvas'); c.width=1; c.height=1; const ctx=c.getContext('2d'); if(image) ctx.drawImage(image,-x,-y); layers.forEach(l=>ctx.drawImage(l.canvas,l.x-x,l.y-y)); const p=ctx.getImageData(0,0,1,1).data; setBrushColor("#"+((1<<24)+(p[0]<<16)+(p[1]<<8)+p[2]).toString(16).slice(1)); setTool('brush'); };
+
+
+            // --- EDITOR DRAG HANDLERS ---
+            const handleEditorPointerDown = (e) => {
+                e.stopPropagation(); e.target.setPointerCapture(e.pointerId);
+                setIsDraggingEditor(true);
+                editorDragStartRef.current = { x: e.clientX - editorPos.x, y: e.clientY - editorPos.y };
+            };
+            const handleEditorPointerMove = (e) => {
+                if (isDraggingEditor) {
+                    setEditorPos({ x: e.clientX - editorDragStartRef.current.x, y: e.clientY - editorDragStartRef.current.y });
+                }
+            };
+            const handleEditorPointerUp = (e) => { setIsDraggingEditor(false); e.target.releasePointerCapture(e.pointerId); };
+
+            return (
+                <div className="fixed inset-0 flex flex-col overflow-hidden text-sm bg-slate-950" onPointerMove={handleEditorPointerMove} onPointerUp={handleEditorPointerUp}>
+                    <header className="h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-3 z-20 shrink-0 shadow-md">
+                        <div className="flex items-center gap-2">
+                            <div className="bg-gradient-to-br from-blue-600 to-indigo-600 p-1.5 rounded-lg shadow-lg shadow-blue-900/20"><Icon name="gamepad-2" size={20} className="text-white"/></div>
+                            <span className="font-bold text-lg text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400 hidden sm:block">JL Skin Editor</span>
+                        </div>
+                        <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide no-scrollbar max-w-[70vw]">
+                            <div className="flex bg-slate-800 rounded-lg border border-slate-700 shrink-0">
+                                <button onClick={handleClearCanvas} className="p-2 hover:bg-slate-700 text-red-400 border-r border-slate-700" title="Reset"><Icon name="file-x" size={18}/></button>
+                                <button onClick={undo} className="p-2 hover:bg-slate-700 text-slate-300 border-r border-slate-700"><Icon name="undo-2" size={18}/></button>
+                                <button onClick={redo} className="p-2 hover:bg-slate-700 text-slate-300"><Icon name="redo-2" size={18}/></button>
+                            </div>
+                            <div className="flex bg-slate-800 rounded-lg border border-slate-700 shrink-0">
+                                <button onClick={()=>setIsHandMode(!isHandMode)} className={`p-2 ${isHandMode?'bg-blue-600 text-white':'text-slate-400'}`}><Icon name="hand" size={18}/></button>
+                                <div className="w-px bg-slate-700"></div>
+                                <button onClick={()=>fitImageToScreen(image)} className="p-2 text-slate-400 hover:text-white"><Icon name="maximize" size={18}/></button>
+                            </div>
+                            <button onClick={()=>fileInputRef.current.click()} className="p-2 hover:bg-slate-800 rounded-lg text-blue-400 shrink-0"><Icon name="upload" size={20}/></button>
+                            <button onClick={downloadSkin} className="p-2 bg-emerald-600 rounded-lg text-white shrink-0"><Icon name="download" size={18}/></button>
+                            <input ref={fileInputRef} type="file" className="hidden" onChange={handleUpload}/>
+                        </div>
+                    </header>
+
+                    <div className={`flex-1 relative overflow-hidden bg-black canvas-bg ${cursorStyle==='none'?'cursor-none':''} ${cursorStyle==='resize'?'cursor-resize':''} ${cursorStyle==='grab'?'cursor-grab':''} ${cursorStyle==='grabbing'?'cursor-grabbing':''}`} ref={containerRef}>
+                        <canvas ref={canvasRef} className="absolute top-0 left-0 touch-none block" onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp} onWheel={handleWheel}/>
+                        {activeLayerId && !isHandMode && !editingTemplateId && <div className="absolute top-4 left-1/2 -translate-x-1/2 animate-pop-in-center z-40"><button onClick={()=>{setLayers(layers.filter(l=>l.id!==activeLayerId)); setActiveLayerId(null); saveToHistory();}} className="bg-red-500/90 text-white px-4 py-2 rounded-full shadow-xl flex items-center gap-2 text-xs font-bold"><Icon name="trash-2" size={14}/> Hapus Layer</button></div>}
+                        
+                        {tool==='cut' && cutMode==='editing' && selection && (
+                            <div className="absolute left-1/2 bottom-[5.5rem] -translate-x-1/2 flex gap-4 z-30 animate-pop-in-center">
+                                <button onClick={()=>{setSelection(null); setCutMode('idle');}} className="bg-slate-800 hover:bg-slate-700 text-red-400 h-12 w-12 flex items-center justify-center rounded-full border border-slate-700 shadow-lg">
+                                    <Icon name="x" size={20}/>
+                                </button>
+                                <button onClick={executeCut} className="bg-blue-600 hover:bg-blue-500 text-white h-12 w-12 flex items-center justify-center rounded-full shadow-lg shadow-blue-900/50">
+                                    <Icon name="check" size={20}/>
+                                </button>
+                            </div>
+                        )}
+                        
+                        {!image && <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-600"><Icon name="image-plus" size={64} className="opacity-20 mb-4"/><p className="text-lg opacity-40">Mulai Proyek Baru</p></div>}
+                    </div>
+
+                    <div className="h-20 bg-slate-900 border-t border-slate-800 flex items-center justify-evenly px-2 z-20 shadow-[0_-5px_20px_rgba(0,0,0,0.3)] w-full">
+                        <ToolButton active={tool==='move'} onClick={()=>{setTool('move'); setIsHandMode(false);}} icon="move" label="Geser" />
+                        <ToolButton active={tool==='cut'} onClick={()=>{setTool('cut'); setCutMode('idle'); setIsHandMode(false);}} icon="scissors" label="Potong" />
+                        <ToolButton active={tool==='brush'} onClick={()=>{setTool('brush'); setIsHandMode(false);}} icon="brush" label="Kuas" />
+                        <ToolButton active={tool==='eraser'} onClick={()=>{setTool('eraser'); setIsHandMode(false);}} icon="eraser" label="Hapus" />
+                        <ToolButton active={tool==='editor'} onClick={()=>{setTool('editor'); setIsHandMode(false);}} icon="layout-template" label={editingTemplateId ? "Edit" : "Editor"} />
+                        <ToolButton active={false} onClick={()=>setShowLibrary(true)} icon="library" label="Library" />
+                    </div>
+
+                    {(tool==='brush'||tool==='eraser') && (
+                        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 bg-slate-800/90 backdrop-blur rounded-2xl p-4 border border-slate-700 shadow-2xl flex gap-4 items-center z-30 w-80 max-w-[90%] animate-pop-in-center">
+                             <div className="flex flex-col gap-1 border-r border-slate-600 pr-3"><button onClick={()=>setSubTool('normal')} className={`p-1.5 rounded ${subTool==='normal'?'bg-blue-600 text-white':'text-slate-400'}`}><Icon name={tool==='brush'?'pencil':'eraser'} size={16}/></button><button onClick={()=>setSubTool('fill')} className={`p-1.5 rounded ${subTool==='fill'?'bg-blue-600 text-white':'text-slate-400'}`}><Icon name={tool==='brush'?'paint-bucket':'wand-2'} size={16}/></button></div>
+                             {tool==='brush' && <input type="color" value={brushColor} onChange={e=>setBrushColor(e.target.value)} className="w-10 h-10 rounded-lg cursor-pointer bg-transparent border-slate-600 border-2 shrink-0"/>}
+                             <div className="flex-1 min-w-0"><label className="text-[10px] text-slate-400 uppercase font-bold mb-1 block">Ukuran: {brushSize}px</label><input type="range" min="1" max="50" value={brushSize} onChange={e=>setBrushSize(parseInt(e.target.value))} className="w-full h-1.5 bg-slate-600 rounded-lg accent-blue-500"/></div>
+                             <button onClick={()=>setTool('pipette')} className="p-2.5 bg-slate-700 rounded-xl text-slate-300 shrink-0"><Icon name="pipette" size={18}/></button>
+                             <button onClick={()=>{setTool('move'); setIsHandMode(false);}} className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-1 shadow-lg hover:bg-red-600"><Icon name="x" size={14}/></button>
+                        </div>
+                    )}
+
+                                        {tool === 'editor' && (
+    <div 
+        style={{ left: editorPos.x, top: editorPos.y }}
+        className="absolute bg-slate-900/95 backdrop-blur-sm rounded-xl border border-slate-700 shadow-2xl z-30 w-64 max-w-[80vw] animate-pop-in flex flex-col overflow-hidden"
+    >
+        <div 
+            onPointerDown={handleEditorPointerDown}
+            className="bg-slate-800/80 px-2 py-1.5 flex justify-between items-center cursor-move touch-none border-b border-slate-700"
+        >
+            <h3 className="text-white font-bold flex items-center gap-2 text-[9px] pointer-events-none select-none uppercase tracking-widest">
+                <Icon name="grip-horizontal" size={12} className="text-slate-500"/> 
+                {editingTemplateId ? "Edit Mode" : "Template"}
+            </h3>
+            <button onClick={()=>setTool('move')} className="text-slate-400 hover:text-white p-1">
+                <Icon name="x" size={14}/>
+            </button>
+        </div>
+        
+        <div className="p-2 overflow-y-auto space-y-1.5 max-h-[40vh] scrollbar-hide">
+            <div className="flex gap-1 bg-slate-800 p-0.5 rounded-md">
+                {['box', 'round', 'gameboy', 'arch'].map(s => (
+                    <button key={s} onClick={() => setTmplSettings({...tmplSettings, style: s})} 
+                        className={`flex-1 py-0.5 text-[8px] uppercase font-black rounded ${tmplSettings.style === s ? 'bg-blue-600 text-white' : 'text-slate-500'}`}>
+                        {s}
+                    </button>
+                ))}
+            </div>
+
+            <div className="grid grid-cols-2 gap-1">
+                <div className="bg-slate-800/40 p-1 rounded border border-slate-700/50">
+                    <label className="text-[7px] text-slate-500 block uppercase">Lebar: {Math.round(tmplSettings.w)}</label>
+                    <input type="range" min="100" max="1000" value={tmplSettings.w} onChange={e=>setTmplSettings({...tmplSettings, w: parseInt(e.target.value)})} className="w-full h-1 bg-slate-700 rounded accent-blue-500"/>
+                </div>
+                <div className="bg-slate-800/40 p-1 rounded border border-slate-700/50">
+                    <label className="text-[7px] text-slate-500 block uppercase">Tinggi: {Math.round(tmplSettings.h)}</label>
+                    <input type="range" min="100" max="1000" value={tmplSettings.h} onChange={e=>setTmplSettings({...tmplSettings, h: parseInt(e.target.value)})} className="w-full h-1 bg-slate-700 rounded accent-blue-500"/>
+                </div>
+            </div>
+
+            <div className="bg-slate-800/40 p-1 rounded border border-slate-700/50">
+                <label className="text-[7px] text-slate-500 block uppercase">Radius: {Math.round(tmplSettings.radius)}</label>
+                <input type="range" min="0" max="100" value={tmplSettings.radius} onChange={e=>setTmplSettings({...tmplSettings, radius: parseInt(e.target.value)})} className="w-full h-1 bg-slate-700 rounded accent-blue-500"/>
+            </div>
+
+            <div className="border-t border-slate-800 pt-1">
+                <button onClick={() => setIsHoleOpen(!isHoleOpen)} className="w-full flex justify-between items-center py-0.5 group">
+                    <label className="text-[8px] text-blue-500 font-black uppercase tracking-tighter cursor-pointer">Area Layar (Hole)</label>
+                    <Icon name={isHoleOpen ? "chevron-up" : "chevron-down"} size={10} className="text-slate-600"/>
+                </button>
+                
+                {isHoleOpen && (
+                    <div className="animate-fade-in space-y-1 mt-1">
+                        <div className="grid grid-cols-2 gap-1">
+                            <div className="bg-slate-800/30 p-1 rounded">
+                                <label className="text-[7px] text-slate-500 block">L: {Math.round(tmplSettings.innerW)}</label>
+                                <input type="range" min="50" max={tmplSettings.w - 20} value={tmplSettings.innerW} onChange={e=>setTmplSettings({...tmplSettings, innerW: parseInt(e.target.value)})} className="w-full h-1 bg-slate-700 rounded accent-blue-500"/>
+                            </div>
+                            <div className="bg-slate-800/30 p-1 rounded">
+                                <label className="text-[7px] text-slate-500 block">T: {Math.round(tmplSettings.innerH)}</label>
+                                <input type="range" min="50" max={tmplSettings.h - 20} value={tmplSettings.innerH} onChange={e=>setTmplSettings({...tmplSettings, innerH: parseInt(e.target.value)})} className="w-full h-1 bg-slate-700 rounded accent-blue-500"/>
+                            </div>
+                        </div>
+                        <input type="range" min={-tmplSettings.h/2} max={tmplSettings.h/2} value={tmplSettings.innerYOffset} onChange={e=>setTmplSettings({...tmplSettings, innerYOffset: parseInt(e.target.value)})} className="w-full h-1 bg-slate-700 rounded accent-blue-500"/>
+                    </div>
+                )}
+            </div>
+
+            <div className="flex gap-1.5 items-center pt-1">
+                <input type="color" value={tmplSettings.color} onChange={e=>setTmplSettings({...tmplSettings, color: e.target.value})} className="w-7 h-7 rounded border border-slate-700 bg-slate-800 cursor-pointer p-0.5 shrink-0"/>
+                {editingTemplateId ? (
+                    <div className="flex gap-1 flex-1">
+                        <button onClick={deleteActiveTemplate} className="bg-red-500/10 hover:bg-red-500/20 px-2 rounded text-red-400 border border-red-500/20 transition-all"><Icon name="trash-2" size={12}/></button>
+                        <button onClick={finishTemplate} className="flex-1 bg-emerald-600 hover:bg-emerald-500 py-1 rounded text-white font-black text-[8px] uppercase tracking-widest shadow-lg">Simpan</button>
+                    </div>
+                ) : (
+                    <button onClick={createTemplate} className="flex-1 bg-blue-600 hover:bg-blue-500 py-1 rounded text-white font-black text-[8px] uppercase tracking-widest shadow-lg">Buat Baru</button>
+                )}
+            </div>
+        </div>
+    </div>
+)}
+
+
+
+
+                    {showLibrary && (
+                        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity">
+                            <div className="bg-slate-900 w-full max-w-4xl h-[80vh] rounded-3xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden animate-pop-in">
+                                <div className="p-4 sm:p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+                                    <div><h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Library</h2><p className="text-slate-400 text-xs sm:text-sm">{libraryCategory==='Koleksi'?'Koleksi Mentahan':'Pilih Elemen'}</p></div>
+                                    <button onClick={()=>setShowLibrary(false)} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-400 hover:text-white transition-colors"><Icon name="x" size={24}/></button>
+                                </div>
+                                <div className="px-4 sm:px-6 py-4 flex gap-3 overflow-x-auto border-b border-slate-800 bg-slate-900/30 shrink-0">
+                                    {CATEGORIES.map(c=><button key={c} onClick={()=>{setLibraryCategory(c); loadAssets(c);}} className={`px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap transition-all ${libraryCategory===c?'bg-blue-600 text-white shadow-lg shadow-blue-900/30':'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'}`}>{c}</button>)}
+                                </div>
+                                {libraryCategory!=='Koleksi' && uniqueSubFolders.length>0 && (
+                                    <div className="px-4 sm:px-6 py-2 flex gap-2 overflow-x-auto border-b border-slate-800 bg-slate-950/30 shrink-0 text-xs">
+                                        <button onClick={()=>setActiveSubFolder(null)} className={`px-3 py-1 rounded-full border transition-colors ${activeSubFolder===null?'bg-slate-700 border-slate-600 text-white':'border-transparent text-slate-500 hover:text-slate-300'}`}>Semua</button>
+                                        {uniqueSubFolders.map(f=><button key={f} onClick={()=>setActiveSubFolder(f)} className={`px-3 py-1 rounded-full border transition-colors flex items-center gap-1 ${activeSubFolder===f?'bg-slate-700 border-slate-600 text-white':'border-transparent text-slate-500 hover:text-slate-300'}`}><Icon name="folder" size={10}/> {f}</button>)}
+                                    </div>
+                                )}
+                                <div className="flex-1 p-4 sm:p-6 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 sm:gap-4 overflow-y-auto bg-slate-950/50 content-start">
+                                    {libraryCategory==='Koleksi' && <div onClick={()=>collectionInputRef.current.click()} className="group bg-slate-800/50 rounded-xl border-2 border-dashed border-slate-700 hover:border-blue-500 transition-all cursor-pointer aspect-square flex flex-col items-center justify-center text-slate-500 hover:text-blue-400"><Icon name="plus" size={32}/><span className="text-xs font-bold mt-2">Unggah</span><input ref={collectionInputRef} type="file" multiple accept="image/*" className="hidden" onChange={handleCollectionUpload}/></div>}
+                                    {filteredAssets.map(a=>(
+                                        <div key={a.id} className="group relative bg-slate-800 rounded-xl border border-slate-700 hover:border-blue-500 transition-all cursor-pointer aspect-square flex items-center justify-center p-2" onClick={()=>{
+                                            const i=new Image(); i.src=a.src; i.onload=()=>{
+                                                const c=createLayerCanvas(i);
+                                                if(libraryCategory==='Koleksi') {
+                                                    showConfirm('Muat Koleksi', 'Project saat ini akan tertimpa. Lanjutkan?', () => { setImage(c); setLayers([]); setHistory([]); fitImageToScreen(i); setShowLibrary(false); setTool('move'); });
+                                                } else {
+                                                    const nl={id:Date.now(), canvas:c, x:50, y:50, w:i.width, h:i.height}; setLayers(p=>[...p,nl]); setActiveLayerId(nl.id); saveToHistory(); setShowLibrary(false); setTool('move'); setIsHandMode(false);
+                                                }
+                                            }
+                                        }}>
+                                            <div className="absolute inset-0 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAABtJREFUeNpiZGBg+M+AAxYs4sABR62gHwAAKwQBAJ08E6YAAAAASUVORK5CYII=')] opacity-20"></div>
+                                            <img src={a.src} className="relative max-w-full max-h-full object-contain group-hover:scale-110 transition-transform duration-300"/>
+                                            {a.subFolder && <div className="absolute top-1 left-1 bg-black/50 text-[8px] text-white px-1.5 py-0.5 rounded backdrop-blur-sm">{a.subFolder}</div>}
+                                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity flex justify-end gap-2">
+                                                <button onClick={(e)=>{e.stopPropagation(); handleEditFolder(a);}} className="text-blue-400 hover:text-blue-300"><Icon name="pencil" size={14}/></button>
+                                                <button onClick={(e)=>{e.stopPropagation(); handleDownloadAsset(a);}} className="text-emerald-400 hover:text-emerald-300"><Icon name="download" size={14}/></button>
+                                                <button onClick={(e)=>{e.stopPropagation(); deleteAssetFromDB(a.id).then(()=>loadAssets(libraryCategory));}} className="text-red-400 hover:text-red-300"><Icon name="trash-2" size={14}/></button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {showCutModal && (
+                        <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                            <div className="bg-slate-900 rounded-2xl p-6 w-full max-w-sm border border-slate-700 shadow-2xl animate-pop-in">
+                                <h3 className="text-lg font-bold text-center mb-4 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">Simpan Potongan</h3>
+                                <div className="bg-slate-800 rounded-xl p-4 mb-5 flex justify-center border border-slate-700 relative overflow-hidden"><div className="absolute inset-0 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAABtJREFUeNpiZGBg+M+AAxYs4sABR62gHwAAKwQBAJ08E6YAAAAASUVORK5CYII=')] opacity-30"></div><img src={tempCutImage} className="relative max-h-32 object-contain drop-shadow-xl"/></div>
+                                <div className="flex flex-wrap gap-2 mb-4 justify-center">{CATEGORIES.filter(c=>c!=='Koleksi').map(c=><button key={c} onClick={()=>setCutCategory(c)} className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${cutCategory===c?'bg-blue-600 text-white ring-2 ring-blue-400/30':'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>{c}</button>)}</div>
+                                <div className="mb-6"><input type="text" placeholder="Nama Sub-folder (Opsional)" value={cutSubFolderInput} onChange={e=>setCutSubFolderInput(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 placeholder-slate-500"/></div>
+                                <div className="grid grid-cols-2 gap-3"><button onClick={saveCutToLibrary} className="bg-blue-600 hover:bg-blue-500 py-3 rounded-xl text-xs font-bold text-white transition-colors">Simpan Library</button><button onClick={pasteCutToCanvas} className="bg-slate-700 hover:bg-slate-600 py-3 rounded-xl text-xs font-bold text-white transition-colors">Tempel Langsung</button></div>
+                            </div>
+                        </div>
+                    )}
+
+                    <CustomModal config={modalConfig} onClose={() => setModalConfig(null)} />
+                </div>
+            );
+        };
+
+        const ToolButton = ({ active, onClick, icon, label }) => (
+            <button onClick={onClick} className={`group flex flex-col items-center justify-center w-12 sm:w-16 h-14 sm:h-16 rounded-xl sm:rounded-2xl transition-all duration-300 ${active ? 'bg-blue-600 text-white shadow-[0_0_20px_rgba(37,99,235,0.4)] -translate-y-2' : 'text-slate-500 hover:bg-slate-800 hover:text-slate-300'}`}>
+                <Icon name={icon} size={20} className={`mb-0.5 sm:mb-1 transition-transform ${active ? 'scale-110' : 'group-hover:scale-110'}`} strokeWidth={active?2.5:2} />
+                <span className="text-[9px] sm:text-[10px] font-medium tracking-wide">{label}</span>
+            </button>
+        );
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
