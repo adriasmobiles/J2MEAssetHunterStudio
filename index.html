@@ -214,9 +214,14 @@
     will-change: transform, width, height;
     top: 0; left: 0; 
     
-    /* -- RAHASIA KURSOR PRESISI -- */
-    border: 1px solid #ffffff !important; /* Ketebalan mutlak 1px murni */
-    mix-blend-mode: difference; /* Otomatis menjadi warna kebalikan dari gambar di bawahnya! */
+    /* -- KURSOR PIXEL ART PROFESIONAL -- */
+    /* Garis putih murni 1px di tengah */
+    border: 1px solid #ffffff !important; 
+    
+    /* Garis hitam 1px di sisi luar dan sisi dalam */
+    box-shadow: 0 0 0 1px #000000, inset 0 0 0 1px #000000 !important; 
+    
+    background-color: transparent !important;
 }
 
         /* Nav Buttons Refined V5 Style */
@@ -279,7 +284,7 @@
                     <i class="fa-solid fa-box-open text-amber-500 text-3xl drop-shadow-lg"></i>
                 </div>
                 <h3 class="font-bold text-slate-200">Pilih File (Jar/Zip/Png)</h3>
-                <p id="fileNameDisplay" class="text-xs text-slate-400 mt-1 text-center px-4">Penambahan Fitur Editor Skin JL Mod</p>
+                <p id="fileNameDisplay" class="text-xs text-slate-400 mt-1 text-center px-4">Pembaruan Fitur V3</p>
             </div>
 
             <div id="statsBar" class="hidden flex justify-between items-center mb-3 px-1">
@@ -553,6 +558,26 @@
                                 <i class="fa-solid fa-eye-dropper text-xs"></i>
                             </button>
                         </div>
+						
+						<div class="mt-2 border-t border-slate-700/50 pt-2">
+                            <span class="text-[9px] text-emerald-400 font-bold mb-1.5 flex items-center gap-1">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i> PENCURI WARNA SHADER
+                            </span>
+                            <div class="flex gap-1.5">
+                                <button onclick="stealShaderColor('bright')" class="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-[9px] text-slate-300 font-bold active:scale-95 transition shadow-sm">
+                                    Terang
+                                </button>
+                                <button onclick="stealShaderColor('enhance')" class="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-[9px] text-slate-300 font-bold active:scale-95 transition shadow-sm">
+                                    Tegas
+                                </button>
+                                <button onclick="stealShaderColor('warm')" class="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-[9px] text-slate-300 font-bold active:scale-95 transition shadow-sm">
+                                    Hangat
+                                </button>
+                            </div>
+                            <span class="text-[8px] text-slate-500 leading-tight block mt-1.5">
+                                <b>Cara Pakai:</b> Ambil warna asli di kanvas pakai pipet, lalu klik salah satu tombol di atas untuk "mencuri" efek shadernya. Sapukan ke kanvas!
+                            </span>
+                        </div>
                     </div>
 
                     <div id="panel-eraser" class="hidden space-y-3 w-full">
@@ -796,39 +821,44 @@
         };
 
         window.resetEditor = () => {
-            if (!originalImportedImage) return;
-            
-            if (currentEditorImageIndex > -1) { 
-                const target = foundImages[currentEditorImageIndex]; 
-                if (target.draftData) delete target.draftData; 
-                if (target.draftUndoStack) delete target.draftUndoStack; 
-                if (target.draftText) delete target.draftText; 
-                if (target.draftDims) delete target.draftDims; 
-                if (target.draftBadges) delete target.draftBadges; 
-            }
-            
-            const resetCanvasUI = (img) => {
-                editorCanvas.width = img.width; editorCanvas.height = img.height; document.getElementById('resizeW').value = img.width; document.getElementById('resizeH').value = img.height;
-                ctx.imageSmoothingEnabled = false; ctx.clearRect(0, 0, img.width, img.height); ctx.drawImage(img, 0, 0);
-                originalImportedImage = document.createElement('canvas'); originalImportedImage.width = img.width; originalImportedImage.height = img.height; originalImportedImage.getContext('2d').drawImage(img, 0, 0);
-                
-                // Matikan memori Undo dan bersihkan Kapsul Shader
-                undoStack = []; document.getElementById('btnUndo').disabled = true; appliedShadersList = []; renderShaderBadges(); currentActiveShader = null; btnApplyAll.classList.add('hidden');
-                showNotification("Gambar di-reset bersih!", "success");
-            };
-            
-            if (currentEditorImageIndex > -1) { 
-                const target = foundImages[currentEditorImageIndex];
-                const img = new Image(); 
-                img.onload = () => resetCanvasUI(img); 
-                
-                // PERBAIKAN MUTLAK: Selalu muat ulang dari Blob Asli (Bukan dari URL yang mungkin sudah diinjeksi)
-                const originalBlob = new Blob([target.originalData], {type: 'image/png'});
-                img.src = URL.createObjectURL(originalBlob);
-            } else { 
-                resetCanvasUI(originalImportedImage); 
-            }
-        };
+    if (!originalImportedImage) return;
+    
+    const resetCanvasUI = (img) => {
+        editorCanvas.width = img.width; editorCanvas.height = img.height; document.getElementById('resizeW').value = img.width; document.getElementById('resizeH').value = img.height;
+        ctx.imageSmoothingEnabled = false; ctx.clearRect(0, 0, img.width, img.height); ctx.drawImage(img, 0, 0);
+        originalImportedImage = document.createElement('canvas'); originalImportedImage.width = img.width; originalImportedImage.height = img.height; originalImportedImage.getContext('2d').drawImage(img, 0, 0);
+        
+        // Matikan memori Undo dan bersihkan Kapsul Shader
+        undoStack = []; document.getElementById('btnUndo').disabled = true; appliedShadersList = []; renderShaderBadges(); currentActiveShader = null; btnApplyAll.classList.add('hidden');
+        showNotification("Gambar di-reset bersih!", "success");
+    };
+
+    if (currentEditorImageIndex > -1) { 
+        const target = foundImages[currentEditorImageIndex]; 
+        
+        // 1. Hapus Draf Editor
+        if (target.draftData) delete target.draftData; 
+        if (target.draftUndoStack) delete target.draftUndoStack; 
+        if (target.draftText) delete target.draftText; 
+        if (target.draftDims) delete target.draftDims; 
+        if (target.draftBadges) delete target.draftBadges; 
+        
+        // 2. KEMBALIKAN STATUS GLOBAL (Ini yang menyembuhkan bug macet reset di daftar aset!)
+        const originalBlob = new Blob([target.originalData], {type: 'image/png'});
+        target.blob = originalBlob; 
+        target.url = URL.createObjectURL(originalBlob); 
+        target.modified = false; 
+        target.modifiedData = null;
+        target.textLayerData = null; 
+        target.isBatch = false; 
+        
+        const img = new Image(); 
+        img.onload = () => resetCanvasUI(img); 
+        img.src = target.url;
+    } else { 
+        resetCanvasUI(originalImportedImage); 
+    }
+};
         
         // --- BACK BUTTON LOGIC ---
         let backPressTimer = null;
@@ -861,24 +891,47 @@
              lastScrollTop = st;
         });
 		
-		// Fungsi dipanggil saat tombol ungu ditekan
+		// --- FUNGSI BUKA EDITOR ---
 function openJlSkinEditor() {
     const wrapper = document.getElementById('jlSkinWrapper');
     const iframe = document.getElementById('jlSkinFrame');
+    const loader = document.getElementById('jlSkinLoader');
     
-    // Muat URL hanya saat tombol ditekan agar memori tidak berat di awal
-    if (!iframe.src || iframe.src === window.location.href) {
-        iframe.src = 'jl-skin-editor.html'; 
-    }
-    
-    // Tampilkan layar penuh
+    // Tampilkan wadah layar penuh
     wrapper.style.display = 'block';
+
+    // CEK: Apakah ini pertama kali dibuka?
+    if (!iframe.src || iframe.src === window.location.href) {
+        // JIKA PERTAMA KALI: Tampilkan loading dan tunggu iframe selesai memuat
+        loader.style.display = 'flex';
+        iframe.onload = function() {
+            setTimeout(() => {
+                loader.style.display = 'none'; // Sembunyikan loading setelah selesai
+            }, 300);
+        };
+        iframe.src = 'jl-skin-editor.html'; 
+    } else {
+        // JIKA SUDAH PERNAH DIBUKA (Kedua kali dst): 
+        // Langsung sembunyikan loading karena editor sudah siap di memori (bebas macet!)
+        loader.style.display = 'none';
+    }
 }
 
-// Fungsi dipanggil saat tombol 'Kembali' ditekan di dalam iframe
+// --- FUNGSI KLIK TOMBOL KEMBALI (Memunculkan Modal Kustom) ---
 function closeJlSkinEditor() {
+    const modal = document.getElementById('jlSkinConfirmModal');
+    if (modal) {
+        modal.classList.remove('hidden'); // Tampilkan pop-up kustom
+    }
+}
+
+// --- FUNGSI EKSEKUSI KELUAR (Jika pengguna menekan "Ya, Keluar") ---
+function executeCloseJlSkin() {
+    const modal = document.getElementById('jlSkinConfirmModal');
     const wrapper = document.getElementById('jlSkinWrapper');
-    wrapper.style.display = 'none';
+    
+    if (modal) modal.classList.add('hidden'); // Sembunyikan modal
+    if (wrapper) wrapper.style.display = 'none'; // Sembunyikan Iframe JL Skin Editor
 }
 
         function switchView(view) {
@@ -1075,7 +1128,7 @@ function closeJlSkinEditor() {
                         const isTrulyStandalone = (i === 0 && ptr >= len);
                         let name = sourcePath.split('/').pop();
                         if (foundCount > 0 || !isTrulyStandalone) { name = `${name}_${foundCount}`; }
-                        if (!name.toLowerCase().endsWith('.png') && !name.includes('.')) { name = name + ".png"; }
+                        if (!name.toLowerCase().endsWith('.png')) { name = name + ".png"; }
 
                         foundImages.push({
                             index: 0, name: name, path: sourcePath + (isTrulyStandalone ? "" : ` [Part ${foundCount}]`), 
@@ -1421,6 +1474,56 @@ function closeJlSkinEditor() {
             showNotification(`Warna Diambil: ${fullHex}`, "success");
             disableEyedropper(); 
         }
+		
+		// --- FUNGSI PENCURI WARNA SHADER UNTUK KUAS ---
+        window.stealShaderColor = (type) => {
+            const picker = document.getElementById('brushColorPicker');
+            let hex = picker.value;
+            
+            // 1. Ubah Hex dari Color Picker menjadi RGB
+            let r = parseInt(hex.slice(1, 3), 16);
+            let g = parseInt(hex.slice(3, 5), 16);
+            let b = parseInt(hex.slice(5, 7), 16);
+            
+            let nr = r, ng = g, nb = b;
+            let luma = 0.299 * r + 0.587 * g + 0.114 * b;
+            
+            // 2. Terapkan rumus persis seperti Shader Global
+            if (type === 'bright') {
+                const sat = 1.3; const bright = 10;
+                nr = Math.max(0, Math.min(255, luma + (r - luma) * sat + bright));
+                ng = Math.max(0, Math.min(255, luma + (g - luma) * sat + bright));
+                nb = Math.max(0, Math.min(255, luma + (b - luma) * sat + bright));
+            } 
+            else if (type === 'enhance') {
+                const contrast = 40; 
+                const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+                nr = Math.max(0, Math.min(255, factor * (r - 128) + 128));
+                ng = Math.max(0, Math.min(255, factor * (g - 128) + 128));
+                nb = Math.max(0, Math.min(255, factor * (b - 128) + 128));
+            } 
+            else if (type === 'warm') {
+                nr = Math.max(0, Math.min(255, r * 0.5 + luma * 0.5 + 40));
+                ng = Math.max(0, Math.min(255, g * 0.5 + luma * 0.5 + 15));
+                nb = Math.max(0, Math.min(255, b * 0.5 + luma * 0.5 - 30));
+            }
+
+            // 3. SNAPPING BERSIH: Bulatkan ke 12-bit (Aman dari pembengkakan ukuran file)
+            nr = Math.round(nr / 17) * 17;
+            ng = Math.round(ng / 17) * 17;
+            nb = Math.round(nb / 17) * 17;
+            
+            // 4. Ubah kembali menjadi Hex dan masukkan ke Color Picker
+            const newHex = "#" + ((1 << 24) + (nr << 16) + (ng << 8) + nb).toString(16).slice(1);
+            picker.value = newHex;
+            
+            // Perbarui warna kursor kuas secara visual
+            updateBrushCursor(); 
+            
+            // Notifikasi Sukses
+            const typeName = type === 'bright' ? 'Terang' : (type === 'enhance' ? 'Tegas' : 'Hangat');
+            showNotification(`Warna ${typeName} berhasil dicuri!`, "success");
+        };
 
         function handlePointerMove(e) {
             if (isPanning && currentTool === 'none') {
@@ -1545,6 +1648,7 @@ function closeJlSkinEditor() {
             toggleTextVisibility(false);
             setTool('none');
             resetZoom();
+			window.isCanvasModified = false;
         }
 
         document.getElementById('brushSizeSlider').addEventListener('input', (e) => {
@@ -2041,7 +2145,7 @@ function moveBrushCursor(pos) {
             
             // PENTING: Jika Standalone (tanpa targetLimit), gunakan HANYA Kualitas Tertinggi (0 = True Color).
             // Jika Embed (punya targetLimit), izinkan kompresi ekstrem hingga 2 warna agar muat.
-            const depths = targetLimit ? [0, 256, 128, 64, 32, 16, 8, 4, 2] : [0]; 
+            const depths = targetLimit ? [0, 256, 128, 64, 32, 16, 8] : [0]; 
             
             let bestRes = null;
 
@@ -2198,28 +2302,73 @@ function moveBrushCursor(pos) {
             selectionBox.style.display = 'none'; selectionActive = false; 
             document.getElementById('loadingOverlay').classList.remove('hidden'); document.getElementById('loadingStatus').innerText = "Editor: Kompresi...";
             await new Promise(r => setTimeout(r, 100)); 
+            
             try {
-                if(textState.visible || isTextVirtual) { await rasterizeTextLayer(); }
-                const w = editorCanvas.width; const h = editorCanvas.height; const target = foundImages[currentEditorImageIndex];
-                const imageData = ctx.getImageData(0,0,w,h); const data = imageData.data;
-                if (target.isHidden) { for(let i=0; i<data.length; i+=4) { if (data[i+3] < 128) { data[i] = 0; data[i+1] = 0; data[i+2] = 0; data[i+3] = 0; } else { data[i+3] = 255; } } }
-                const buffer = new Uint8Array(data).buffer; const bestBuffer = await smartCompress(buffer, w, h, target.isHidden ? target.size : null);
+                const target = foundImages[currentEditorImageIndex];
+                const w = editorCanvas.width; 
+                const h = editorCanvas.height;
                 
-                if (bestBuffer) {
-                    const blob = new Blob([bestBuffer], {type:'image/png'}); if(target.url) URL.revokeObjectURL(target.url); target.modifiedData = blob; target.blob = blob; target.url = URL.createObjectURL(blob); target.modified = true;
+                // --- 1. SENSOR ANTI-HANCUR (BYPASS UPNG) ---
+                const hasActiveText = textState.visible || isTextVirtual;
+                const isEdited = window.isCanvasModified || hasActiveText;
+                
+                if (!isEdited) {
+                    // Jika tidak ada editan, JANGAN masukkan ke mesin kompresi.
+                    // Gunakan data murni yang sudah ada agar kualitas dan ukuran tetap 100% sama!
+                    const blobToUse = target.modified ? target.modifiedData : new Blob([target.originalData], {type:'image/png'}); 
                     
-                    // PERBAIKAN MUTLAK: Jangan hapus draft/memori! Perbarui dengan state saat ini
-                    // Kapsul dan Undo akan tetap hidup walau sudah diinjeksi
+                    if(target.url) URL.revokeObjectURL(target.url); 
+                    target.modifiedData = blobToUse; target.blob = blobToUse; target.url = URL.createObjectURL(blobToUse); target.modified = true;
+                    
                     target.draftData = ctx.getImageData(0,0,w,h);
-                    target.draftUndoStack = [...undoStack];
-                    target.draftBadges = [...appliedShadersList];
+                    target.draftUndoStack = [...undoStack]; target.draftBadges = [...appliedShadersList];
                     
                     renderList(); 
-                    
                     document.getElementById('loadingOverlay').classList.add('hidden'); 
-                    showNotification("Injeksi Sukses! (Undo tetap aktif)", "success");
-                } else { document.getElementById('loadingOverlay').classList.add('hidden'); showNotification(`Gagal: Ukuran melampaui batas embed.`, "error"); }
-            } catch(e) { document.getElementById('loadingOverlay').classList.add('hidden'); showNotification("Error: " + e.message, "error"); }
+                    showNotification("Injeksi Sukses! (Tanpa Perubahan)", "success");
+                    return; 
+                }
+
+                if(hasActiveText) { await rasterizeTextLayer(); window.isCanvasModified = true; }
+                
+                const imageData = ctx.getImageData(0,0,w,h); const data = imageData.data;
+                if (target.isHidden) { for(let i=0; i<data.length; i+=4) { if (data[i+3] < 128) { data[i] = 0; data[i+1] = 0; data[i+2] = 0; data[i+3] = 0; } else { data[i+3] = 255; } } }
+                
+                const buffer = new Uint8Array(data).buffer; 
+                const bestBuffer = await smartCompress(buffer, w, h, target.isHidden ? target.size : null);
+                
+                if (bestBuffer) {
+                    const blob = new Blob([bestBuffer], {type:'image/png'}); 
+                    if(target.url) URL.revokeObjectURL(target.url); 
+                    target.modifiedData = blob; target.blob = blob; target.url = URL.createObjectURL(blob); target.modified = true;
+                    
+                    target.draftUndoStack = [...undoStack]; target.draftBadges = [...appliedShadersList];
+                    
+                    // Reset sensor karena data sudah tersimpan jadi baseline baru
+                    window.isCanvasModified = false; 
+
+                    // --- 2. FITUR PRATINJAU LANGSUNG (LIVE PREVIEW) ---
+                    // Tarik gambar hasil kompresi UPNG, lalu tempel kembali ke kanvas Editor
+                    const img = new Image();
+                    img.onload = () => {
+                        ctx.clearRect(0, 0, w, h);
+                        ctx.drawImage(img, 0, 0);
+                        target.draftData = ctx.getImageData(0, 0, w, h); // Simpan draf layar terbaru
+                        
+                        renderList(); 
+                        document.getElementById('loadingOverlay').classList.add('hidden'); 
+                        showNotification("Injeksi Sukses! Tampilan diperbarui.", "success");
+                    };
+                    img.src = target.url;
+
+                } else { 
+                    document.getElementById('loadingOverlay').classList.add('hidden'); 
+                    showNotification(`Gagal: Ukuran melampaui batas embed.`, "error"); 
+                }
+            } catch(e) { 
+                document.getElementById('loadingOverlay').classList.add('hidden'); 
+                showNotification("Error: " + e.message, "error"); 
+            }
         }
 
         window.revertImage = (index) => {
@@ -2293,6 +2442,7 @@ function moveBrushCursor(pos) {
         }
 
         function saveState(withText = false) {
+		window.isCanvasModified = true;
              if (undoStack.length >= MAX_UNDO) undoStack.shift();
              let state = {
                  data: ctx.getImageData(0, 0, editorCanvas.width, editorCanvas.height),
@@ -2545,70 +2695,60 @@ function moveBrushCursor(pos) {
 
             // --- 2. LOGIKA MANIPULASI PALET (AMAN UNTUK EMBED) ---
             if (type === 'palette_bright') {
-                const sat = 1.4; const bright = 15; const detailLevel = 4; 
-                let colorMap = new Map();
+                const sat = 1.3; const bright = 10;
                 for(let i=0; i<d.length; i+=4) {
                     if (d[i+3] < 50) continue; 
-                    let key = `${d[i]},${d[i+1]},${d[i+2]}`;
-                    if (!colorMap.has(key)) {
-                        let r = d[i], g = d[i+1], b = d[i+2];
-                        let luma = 0.299*r + 0.587*g + 0.114*b;
-                        let nr = luma + (r - luma) * sat + bright;
-                        let ng = luma + (g - luma) * sat + bright;
-                        let nb = luma + (b - luma) * sat + bright;
-                        nr = Math.max(0, Math.min(255, Math.round(nr / detailLevel) * detailLevel));
-                        ng = Math.max(0, Math.min(255, Math.round(ng / detailLevel) * detailLevel));
-                        nb = Math.max(0, Math.min(255, Math.round(nb / detailLevel) * detailLevel));
-                        colorMap.set(key, [nr, ng, nb]);
-                    }
-                    let newColor = colorMap.get(key);
-                    d[i] = newColor[0]; d[i+1] = newColor[1]; d[i+2] = newColor[2];
+                    let r = d[i], g = d[i+1], b = d[i+2];
+                    let luma = 0.299*r + 0.587*g + 0.114*b;
+                    
+                    let nr = Math.max(0, Math.min(255, luma + (r - luma) * sat + bright));
+                    let ng = Math.max(0, Math.min(255, luma + (g - luma) * sat + bright));
+                    let nb = Math.max(0, Math.min(255, luma + (b - luma) * sat + bright));
+                    
+                    // SNAPPING BERSIH: Membulatkan warna ke standar J2ME 12-Bit (Anti-Bengkak)
+                    d[i] = Math.round(nr / 17) * 17;
+                    d[i+1] = Math.round(ng / 17) * 17;
+                    d[i+2] = Math.round(nb / 17) * 17;
                 }
                 ctx.putImageData(imgData, 0, 0);
-                showNotification("Terang & Hidup diaplikasikan", "success");
+                showNotification("Terang (Clean 12-Bit) diaplikasikan", "success");
             }
             else if (type === 'palette_enhance') {
-                const contrast = 60; 
+                const contrast = 40; // Diturunkan sedikit agar aman
                 const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
-                const detailLevel = 8; 
-                let colorMap = new Map();
                 for(let i=0; i<d.length; i+=4) {
                     if (d[i+3] < 50) continue; 
-                    let key = `${d[i]},${d[i+1]},${d[i+2]}`;
-                    if (!colorMap.has(key)) {
-                        let r = d[i], g = d[i+1], b = d[i+2];
-                        let nr = factor * (r - 128) + 128; let ng = factor * (g - 128) + 128; let nb = factor * (b - 128) + 128;
-                        nr = Math.max(0, Math.min(255, Math.round(nr / detailLevel) * detailLevel));
-                        ng = Math.max(0, Math.min(255, Math.round(ng / detailLevel) * detailLevel));
-                        nb = Math.max(0, Math.min(255, Math.round(nb / detailLevel) * detailLevel));
-                        colorMap.set(key, [nr, ng, nb]);
-                    }
-                    let newColor = colorMap.get(key);
-                    d[i] = newColor[0]; d[i+1] = newColor[1]; d[i+2] = newColor[2];
+                    let r = d[i], g = d[i+1], b = d[i+2];
+                    
+                    let nr = Math.max(0, Math.min(255, factor * (r - 128) + 128));
+                    let ng = Math.max(0, Math.min(255, factor * (g - 128) + 128));
+                    let nb = Math.max(0, Math.min(255, factor * (b - 128) + 128));
+
+                    // SNAPPING BERSIH: Membulatkan warna ke standar J2ME 12-Bit (Anti-Bengkak)
+                    d[i] = Math.round(nr / 17) * 17;
+                    d[i+1] = Math.round(ng / 17) * 17;
+                    d[i+2] = Math.round(nb / 17) * 17;
                 }
                 ctx.putImageData(imgData, 0, 0);
-                showNotification("Pertegas (Anti-Redup) diaplikasikan", "success");
+                showNotification("Tegas (Clean 12-Bit) diaplikasikan", "success");
             }
             else if (type === 'palette_warm') {
-                const detailLevel = 4;
-                let colorMap = new Map();
                 for(let i=0; i<d.length; i+=4) {
                     if (d[i+3] < 50) continue; 
-                    let key = `${d[i]},${d[i+1]},${d[i+2]}`;
-                    if (!colorMap.has(key)) {
-                        let r = d[i], g = d[i+1], b = d[i+2];
-                        let luma = 0.299*r + 0.587*g + 0.114*b;
-                        let nr = r * 0.5 + luma * 0.5 + 40; let ng = g * 0.5 + luma * 0.5 + 15; let nb = b * 0.5 + luma * 0.5 - 30; 
-                        nr = Math.max(0, Math.min(255, Math.round(nr / detailLevel) * detailLevel));
-                        ng = Math.max(0, Math.min(255, Math.round(ng / detailLevel) * detailLevel));
-                        nb = Math.max(0, Math.min(255, Math.round(nb / detailLevel) * detailLevel));
-                        colorMap.set(key, [nr, ng, nb]);
-                    }
-                    let newColor = colorMap.get(key);
-                    d[i] = newColor[0]; d[i+1] = newColor[1]; d[i+2] = newColor[2];
+                    let r = d[i], g = d[i+1], b = d[i+2];
+                    let luma = 0.299*r + 0.587*g + 0.114*b;
+                    
+                    let nr = Math.max(0, Math.min(255, r * 0.5 + luma * 0.5 + 40));
+                    let ng = Math.max(0, Math.min(255, g * 0.5 + luma * 0.5 + 15));
+                    let nb = Math.max(0, Math.min(255, b * 0.5 + luma * 0.5 - 30));
+
+                    // SNAPPING BERSIH: Membulatkan warna ke standar J2ME 12-Bit (Anti-Bengkak)
+                    d[i] = Math.round(nr / 17) * 17;
+                    d[i+1] = Math.round(ng / 17) * 17;
+                    d[i+2] = Math.round(nb / 17) * 17;
                 }
                 ctx.putImageData(imgData, 0, 0);
-                showNotification("Suasana Senja/Hangat diaplikasikan", "success");
+                showNotification("Hangat (Clean 12-Bit) diaplikasikan", "success");
             }
             else if (type === 'palette_outline') {
                 const copy = new Uint8ClampedArray(d);
@@ -2639,26 +2779,72 @@ function moveBrushCursor(pos) {
             // --- 3. LOGIKA SHADER STANDALONE ---
             else if (type === 'cartoon') {
                 const copy = new Uint8ClampedArray(d);
-                const step = 48; 
+                const step = 32; // Pemotongan warna (Posterization) yang pas untuk Cel-Shading
                 for (let y = 0; y < h; y++) {
                     for (let x = 0; x < w; x++) {
                         const i = (y * w + x) * 4;
-                        if (d[i+3] === 0) continue;
+                        if (d[i+3] < 50) continue;
 
-                        d[i] = Math.round(d[i] / step) * step; d[i+1] = Math.round(d[i+1] / step) * step; d[i+2] = Math.round(d[i+2] / step) * step;
+                        // 1. Naikkan Saturasi dan Kecerahan (Warna khas Kartun yang vibrant/hidup)
+                        let r = copy[i], g = copy[i+1], b = copy[i+2];
+                        let luma = 0.299*r + 0.587*g + 0.114*b;
+                        
+                        r = luma + (r - luma) * 1.5 + 20;
+                        g = luma + (g - luma) * 1.5 + 20;
+                        b = luma + (b - luma) * 1.5 + 20;
+
+                        // 2. Terapkan Flat Color (menghilangkan gradasi berlebih)
+                        d[i] = Math.max(0, Math.min(255, Math.round(r / step) * step));
+                        d[i+1] = Math.max(0, Math.min(255, Math.round(g / step) * step));
+                        d[i+2] = Math.max(0, Math.min(255, Math.round(b / step) * step));
+
+                        // 3. Deteksi Tepi (Edge Detection) untuk memberi garis outline pensil/tinta
                         if (x < w - 1 && y < h - 1) {
-                            const iRight = (y * w + (x + 1)) * 4; const iBottom = ((y + 1) * w + x) * 4;
+                            const iRight = (y * w + (x + 1)) * 4; 
+                            const iBottom = ((y + 1) * w + x) * 4;
                             const diffX = Math.abs(copy[i] - copy[iRight]) + Math.abs(copy[i+1] - copy[iRight+1]) + Math.abs(copy[i+2] - copy[iRight+2]);
                             const diffY = Math.abs(copy[i] - copy[iBottom]) + Math.abs(copy[i+1] - copy[iBottom+1]) + Math.abs(copy[i+2] - copy[iBottom+2]);
                             
-                            if (diffX > 80 || diffY > 80) {
-                                d[i] = Math.max(0, d[i] - 70); d[i+1] = Math.max(0, d[i+1] - 70); d[i+2] = Math.max(0, d[i+2] - 70);
+                            // Jika ada perbedaan kontras yang tajam, jadikan piksel ini garis hitam!
+                            if (diffX > 75 || diffY > 75) {
+                                d[i] = 20; d[i+1] = 20; d[i+2] = 20; 
                             }
                         }
                     }
                 }
                 ctx.putImageData(imgData, 0, 0);
                 showNotification("Cartoon Cel-Shading diaplikasikan", "success");
+            }
+			else if (type === 'outline_white' || type === 'outline_black') {
+                const copy = new Uint8ClampedArray(d);
+                const isWhite = type === 'outline_white';
+                const color = isWhite ? 255 : 0; // 255 = Putih, 0 = Hitam
+                
+                for(let y=0; y<h; y++) {
+                    for(let x=0; x<w; x++) {
+                        const idx = (y * w + x) * 4;
+                        // Hanya proses piksel yang transparan/kosong di pinggiran gambar
+                        if (copy[idx+3] < 50) { 
+                            let neighborFound = false;
+                            // Cek 8 arah mata angin (Atas, Bawah, Kiri, Kanan & Diagonal)
+                            const neighbors = [[0,-1], [0,1], [-1,0], [1,0], [-1,-1], [1,-1], [-1,1], [1,1]]; 
+                            for(let n of neighbors) {
+                                const nx = x+n[0]; const ny = y+n[1];
+                                if(nx>=0 && nx<w && ny>=0 && ny<h) {
+                                    const nIdx = (ny * w + nx) * 4;
+                                    if(copy[nIdx+3] > 100) { neighborFound = true; break; } // Ketemu objek gambar!
+                                }
+                            }
+                            
+                            // Jadikan outline solid!
+                            if(neighborFound) {
+                                d[idx] = color; d[idx+1] = color; d[idx+2] = color; d[idx+3] = 255; 
+                            }
+                        }
+                    }
+                }
+                ctx.putImageData(imgData, 0, 0);
+                showNotification(`Outline ${isWhite ? 'Putih' : 'Hitam'} diaplikasikan`, "success");
             }
             else if (type === 'retro_color') {
                 const step = 51; const sat = 1.3; 
@@ -2792,111 +2978,162 @@ function moveBrushCursor(pos) {
             }
         };
 
-        window.applyShaderToAll = async () => {
-            if (!currentActiveShader || foundImages.length === 0) return;
-            if (!confirm(`Terapkan efek '${currentActiveShader}' ke semua gambar (${foundImages.length} items)?\nProses ini mungkin memakan waktu beberapa detik.`)) return;
-
-            document.getElementById('loadingOverlay').classList.remove('hidden');
-            
-            // Simpan indeks gambar yang sedang dibuka oleh user agar bisa dikembalikan nanti
-            const originalIndex = currentEditorImageIndex;
-
-            try {
-                let processed = 0;
-                let failed = 0;
-                
-                // Matikan sementara notifikasi agar layar tidak penuh dengan popup saat proses batch
-                const originalShowNotification = showNotification;
-                showNotification = () => {}; 
-
-                for (let i = 0; i < foundImages.length; i++) {
-                    const imgData = foundImages[i];
-                    document.getElementById('loadingStatus').innerText = `Batch Processing: ${i + 1} / ${foundImages.length}`;
-
-                    // 1. Muat gambar ke kanvas secara programatis (tanpa reset UI secara penuh)
-                    const img = new Image();
-                    await new Promise((resolve, reject) => {
-                        img.onload = resolve;
-                        img.onerror = reject;
-                        img.src = imgData.url; 
-                    });
-                    
-                    editorCanvas.width = img.width;
-                    editorCanvas.height = img.height;
-                    ctx.clearRect(0, 0, img.width, img.height);
-                    ctx.drawImage(img, 0, 0);
-
-                    // 2. Terapkan Shader menggunakan fungsi asli (Pastikan fungsi asli ini sudah ada di kodemu)
-                    // Hapus baris peringatan notifikasi di applyShader untuk batch ini
-                    await applyShader(currentActiveShader); 
-
-                    // 3. Lakukan Injeksi (Kompresi & Simpan) seperti menekan tombol disket ungu
-                    const w = editorCanvas.width; 
-                    const h = editorCanvas.height;
-                    const buffer = new Uint8Array(ctx.getImageData(0,0,w,h).data).buffer;
-                    
-                    // Gunakan batas ukuran hanya jika ini gambar embed
-                    const bestBuffer = await smartCompress(buffer, w, h, imgData.isHidden ? imgData.size : null);
-
-                    if (bestBuffer) {
-                        const blob = new Blob([bestBuffer], {type:'image/png'});
-                        if(imgData.url) URL.revokeObjectURL(imgData.url);
-                        imgData.modifiedData = blob;
-                        imgData.blob = blob;
-                        imgData.url = URL.createObjectURL(blob);
-                        imgData.modified = true;
-                        imgData.isBatch = true;
-                        if(imgData.draftData) delete imgData.draftData;
-                        processed++;
-                    } else {
-                        failed++;
-                    }
-                }
-                
-                // Kembalikan fungsi notifikasi seperti semula
-                showNotification = originalShowNotification;
-                
-                // Kembalikan Editor ke gambar awal yang sedang dibuka user
-                if (originalIndex > -1) {
-                    loadToEditor(originalIndex);
-                }
-
-                let msg = `Sukses: ${processed} gambar diterapkan.`;
-                if(failed > 0) msg += ` Gagal: ${failed} (Terlalu besar untuk slot embed).`;
-                showNotification(msg, failed > 0 ? "warning" : "success");
-                
-                renderList(); // Segarkan UI Daftar Gambar
-                
-            } catch (e) {
-                showNotification("Batch Error: " + e.message, "error");
-            } finally {
-                document.getElementById('loadingOverlay').classList.add('hidden');
-            }
-        };
-    </script>
-	<div id="jlSkinWrapper" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; background-color: rgba(2, 6, 23, 0.95); backdrop-filter: blur(5px);">
+        // Memanggil Modal Konfirmasi Kustom
+window.applyShaderToAll = () => {
+    if (!currentActiveShader || foundImages.length === 0) return;
     
-    <button onclick="closeJlSkinEditor()" 
-        style="position: absolute; 
-               top: 70px; 
-               left: 20px; 
-               z-index: 10000; 
-               padding: 4px 10px; 
-               background: rgba(255, 255, 255, 0.1); 
-               color: rgba(255, 255, 255, 0.7); 
-               border: 1px solid rgba(255, 255, 255, 0.2); 
-               border-radius: 4px; 
-               font-size: 11px; 
-               font-weight: normal; 
-               cursor: pointer; 
-               transition: all 0.2s ease;"
-        onmouseover="this.style.background='rgba(239, 68, 68, 0.8)'; this.style.color='white'; this.style.borderColor='transparent';"
-        onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'; this.style.color='rgba(255, 255, 255, 0.7)'; this.style.borderColor='rgba(255, 255, 255, 0.2)';"
-    >
-        <i class="fa-solid fa-chevron-left" style="margin-right: 4px;"></i> Kembali ke Asset Hunter
-    </button>
+    // Sesuaikan teks di dalam modal
+    document.getElementById('batchModalSubtitle').innerText = `${foundImages.length} ITEMS`;
+    document.getElementById('batchModalText').innerHTML = `Terapkan efek <b>${currentActiveShader}</b> ke semua gambar? Proses ini akan menimpa modifikasi sebelumnya.`;
+    
+    // Tampilkan modal
+    document.getElementById('batchConfirmModal').classList.remove('hidden');
+};
 
-    <iframe id="jlSkinFrame" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+// Mengeksekusi Batch Jika Ditekan "Ya, Terapkan"
+window.executeApplyAll = async () => {
+    // Sembunyikan modal
+    document.getElementById('batchConfirmModal').classList.add('hidden');
+    document.getElementById('loadingOverlay').classList.remove('hidden');
+    
+    const originalIndex = currentEditorImageIndex;
+
+    try {
+        let processed = 0;
+        let failed = 0;
+        
+        const originalShowNotification = showNotification;
+        showNotification = () => {}; 
+
+        for (let i = 0; i < foundImages.length; i++) {
+            const imgData = foundImages[i];
+            document.getElementById('loadingStatus').innerText = `Batch Processing: ${i + 1} / ${foundImages.length}`;
+
+            const img = new Image();
+            await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = reject;
+                img.src = imgData.url; 
+            });
+            
+            editorCanvas.width = img.width;
+            editorCanvas.height = img.height;
+            ctx.clearRect(0, 0, img.width, img.height);
+            ctx.drawImage(img, 0, 0);
+
+            await applyShader(currentActiveShader); 
+
+            const w = editorCanvas.width; 
+            const h = editorCanvas.height;
+            const buffer = new Uint8Array(ctx.getImageData(0,0,w,h).data).buffer;
+            
+            const bestBuffer = await smartCompress(buffer, w, h, imgData.isHidden ? imgData.size : null);
+
+            if (bestBuffer) {
+                const blob = new Blob([bestBuffer], {type:'image/png'});
+                if(imgData.url) URL.revokeObjectURL(imgData.url);
+                imgData.modifiedData = blob;
+                imgData.blob = blob;
+                imgData.url = URL.createObjectURL(blob);
+                imgData.modified = true;
+                imgData.isBatch = true;
+                if(imgData.draftData) delete imgData.draftData;
+                processed++;
+            } else {
+                failed++;
+            }
+        }
+        
+        showNotification = originalShowNotification;
+        
+        if (originalIndex > -1) {
+            loadToEditor(originalIndex);
+        }
+
+        let msg = `Sukses: ${processed} gambar diterapkan.`;
+        if(failed > 0) msg += ` Gagal: ${failed} (Terlalu besar).`;
+        showNotification(msg, failed > 0 ? "warning" : "success");
+        
+        renderList(); 
+        
+    } catch (e) {
+        showNotification("Batch Error: " + e.message, "error");
+    } finally {
+        document.getElementById('loadingOverlay').classList.add('hidden');
+    }
+};
+    </script>
+	<div id="jlSkinWrapper" style="display: none; position: fixed; inset: 0; z-index: 9999; background-color: #0f172a;">
+    
+    <iframe id="jlSkinFrame" src="" style="position: absolute; inset: 0; width: 100%; height: 100%; border: none; z-index: 10;"></iframe>
+    
+    <div id="jlSkinLoader" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #0f172a; z-index: 20;">
+        <div class="loader mb-4"></div>
+        <span class="text-sm font-bold text-amber-400 animate-pulse">Menyiapkan JL Skin Editor...</span>
+        <span class="text-xs text-slate-500 mt-1">Harap Tunggu Sedang Memuat Data...</span>
+    </div>
+
+    <button onclick="closeJlSkinEditor()" ontouchstart="closeJlSkinEditor()"
+        style="position: absolute; top: 70px; left: 20px; z-index: 99999; pointer-events: auto; padding: 6px 14px; background: rgba(15, 23, 42, 0.9); color: white; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5); backdrop-filter: blur(4px);">
+        <i class="fa-solid fa-chevron-left" style="margin-right: 4px;"></i> Kembali
+    </button>
+</div>
+
+<div id="jlSkinConfirmModal" class="hidden fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 transition-opacity">
+    <div class="bg-slate-900 border border-red-500/50 rounded-2xl w-full max-w-xs p-5 flex flex-col gap-4 shadow-[0_0_30px_rgba(239,68,68,0.15)] animate-slide-up">
+        
+        <div class="flex items-center gap-3 border-b border-slate-800 pb-3">
+            <div class="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
+                <i class="fa-solid fa-triangle-exclamation text-red-500 text-lg"></i>
+            </div>
+            <div>
+                <h3 class="font-bold text-slate-200 text-sm">Tutup Editor?</h3>
+                <p class="text-[9px] text-red-400 font-mono mt-0.5">PERINGATAN DATA</p>
+            </div>
+        </div>
+        
+        <p class="text-[11px] text-slate-300 leading-relaxed">
+            Pastikan Anda sudah <b>menyimpan</b> atau <b>mendownload</b> skin Anda di JL Skin Editor! Progres yang belum disave akan hilang.
+        </p>
+        
+        <div class="flex gap-2 mt-2">
+            <button onclick="document.getElementById('jlSkinConfirmModal').classList.add('hidden')" class="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-[11px] font-bold transition border border-slate-600 active:scale-95">
+                Batal
+            </button>
+            <button onclick="executeCloseJlSkin()" class="flex-1 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-[11px] font-bold transition shadow-lg shadow-red-900/40 active:scale-95 flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-right-from-bracket"></i> Ya, Keluar
+            </button>
+        </div>
+        
+    </div>
+</div>
+
+<div id="batchConfirmModal" class="hidden fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 transition-opacity">
+    <div class="bg-slate-900 border border-emerald-500/50 rounded-2xl w-full max-w-xs p-5 flex flex-col gap-4 shadow-[0_0_30px_rgba(16,185,129,0.15)] animate-slide-up">
+        
+        <div class="flex items-center gap-3 border-b border-slate-800 pb-3">
+            <div class="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
+                <i class="fa-solid fa-layer-group text-emerald-500 text-lg"></i>
+            </div>
+            <div>
+                <h3 class="font-bold text-slate-200 text-sm">Terapkan ke Semua?</h3>
+                <p class="text-[9px] text-emerald-400 font-mono mt-0.5" id="batchModalSubtitle">EFEK BATCH</p>
+            </div>
+        </div>
+        
+        <p class="text-[11px] text-slate-300 leading-relaxed" id="batchModalText">
+            Terapkan efek ini ke seluruh gambar? Proses ini akan memakan waktu beberapa detik.
+        </p>
+        
+        <div class="flex gap-2 mt-2">
+            <button onclick="document.getElementById('batchConfirmModal').classList.add('hidden')" class="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-[11px] font-bold transition border border-slate-600 active:scale-95">
+                Batal
+            </button>
+            <button onclick="executeApplyAll()" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[11px] font-bold transition shadow-lg shadow-emerald-900/40 active:scale-95 flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-check-double"></i> Ya, Terapkan
+            </button>
+        </div>
+    </div>
 </div>
 </body>
 </html>

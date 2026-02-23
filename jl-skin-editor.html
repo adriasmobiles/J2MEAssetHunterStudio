@@ -709,7 +709,7 @@ const [isHoleOpen, setIsHoleOpen] = useState(false);
                         {activeLayerId && !isHandMode && !editingTemplateId && <div className="absolute top-4 left-1/2 -translate-x-1/2 animate-pop-in-center z-40"><button onClick={()=>{setLayers(layers.filter(l=>l.id!==activeLayerId)); setActiveLayerId(null); saveToHistory();}} className="bg-red-500/90 text-white px-4 py-2 rounded-full shadow-xl flex items-center gap-2 text-xs font-bold"><Icon name="trash-2" size={14}/> Hapus Layer</button></div>}
                         
                         {tool==='cut' && cutMode==='editing' && selection && (
-                            <div className="absolute left-1/2 bottom-[5.5rem] -translate-x-1/2 flex gap-4 z-30 animate-pop-in-center">
+                            <div className="absolute left-1/2 bottom-[2.5rem] -translate-x-1/2 flex gap-4 z-30 animate-pop-in-center">
                                 <button onClick={()=>{setSelection(null); setCutMode('idle');}} className="bg-slate-800 hover:bg-slate-700 text-red-400 h-12 w-12 flex items-center justify-center rounded-full border border-slate-700 shadow-lg">
                                     <Icon name="x" size={20}/>
                                 </button>
